@@ -1,0 +1,20 @@
+{
+  "appId": "app.starblade.academy",
+  "appName": "Starblade Academy",
+  "webDir": "www",
+  "backgroundColor": "#0b0a1f",
+  "android": {
+    "backgroundColor": "#0b0a1f"
+  },
+  "ios": {
+    "backgroundColor": "#0b0a1f",
+    "contentInset": "automatic"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "backgroundColor": "#0b0a1f",
+      "showSpinner": false
+    }
+  }
+}

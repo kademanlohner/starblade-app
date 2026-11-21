@@ -1,0 +1,21 @@
+{
+  "name": "starblade-academy",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Starblade Academy, packaged for app stores with Capacitor. The website in this folder is what GitHub Pages serves.",
+  "scripts": {
+    "sync:www": "bash scripts/sync-www.sh",
+    "cap:sync": "bash scripts/sync-www.sh && npx cap sync",
+    "assets": "npx capacitor-assets generate --ios --android --pwa"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/ios": "^8.0.0",
+    "@capacitor/splash-screen": "^8.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.0.0"
+  }
+}
