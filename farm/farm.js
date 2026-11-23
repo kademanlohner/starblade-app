@@ -202,7 +202,7 @@
   }
 
   function loadImages(done) {
-    var jobs = [["bg", "farm/art/farm-bg.jpg"]];
+    var jobs = [["bg", "farm/art/farm-bg.jpg"], ["glideSky", "farm/art/glide-sky.jpg"], ["glideNear", "farm/art/glide-near.png"], ["flight", "farm/art/flight-andes.jpg"], ["crop0", "farm/art/crop-seed.png"], ["crop1", "farm/art/crop-sprout.png"], ["crop2", "farm/art/crop-leaf.png"], ["crop3", "farm/art/crop-harvest.png"]];
     SPECIES.forEach(function (id) { for (var i = 0; i < 5; i++) jobs.push(["s:" + id + ":" + i, "farm/art/" + id + "-" + i + ".png"]); });
     PLACES.forEach(function (p) { jobs.push(["land:" + p.id, "farm/art/land-" + p.id + ".jpg"]); });
     var left = jobs.length;
@@ -241,8 +241,8 @@
       var col = i % c, row = Math.floor(i / c);
       board.push({ i: i, x: ox + col * size + 2, y: top + row * size + 2, s: size - 4 });
     }
-    var beds = st.plots.length, gap = 8, h = Math.max(78, viewH * 0.24), y = viewH - h - 8;
-    var w = Math.min(78, (viewW - 16 - gap * (beds - 1)) / beds);
+    var beds = st.plots.length, gap = 4, h = Math.max(78, viewH * 0.24), y = viewH - h - 8;
+    var w = (viewW - 8 - gap * (beds - 1)) / beds;
     var x0 = (viewW - (w * beds + gap * (beds - 1))) / 2;
     plotsBox = [];
     for (var p = 0; p < beds; p++) plotsBox.push({ i: p, x: x0 + p * (w + gap), y: y, w: w, h: h });
@@ -324,6 +324,18 @@
     ctx.restore();
   }
   function drawCrop(plot, box) {
+    var step = plot ? Math.max(0, Math.min(3, plot.step || 0)) : 0;
+    var painted = imgs["crop" + step];
+    if (painted) {
+      var col = box.w;
+      var w = col * 0.98;
+      var h = w * painted.height / painted.width;
+      var cap = viewH * 0.46;
+      if (h > cap) { h = cap; w = h * painted.width / painted.height; }
+      if (w > col) { w = col; h = w * painted.height / painted.width; }
+      ctx.drawImage(painted, box.x + (box.w - w) / 2, viewH - h + 2, w, h);
+      return;
+    }
     var x = box.x, y = box.y, w = box.w, h = box.h;
     var bedTop = y + h * 0.42;
     ctx.fillStyle = "#5c3318";
@@ -643,8 +655,8 @@
   function seedGlide(g) {
     if (g.seeded) return;
     g.seeded = true;
-    g.x = viewW * 0.3;
-    g.y = viewH * 0.3;
+    g.x = viewW * 0.32;
+    g.y = viewH * 0.2;
     g.clouds = [
       { x: viewW * 0.18, y: viewH * 0.12, s: 0.7 },
       { x: viewW * 0.62, y: viewH * 0.18, s: 1.05 },
@@ -690,61 +702,27 @@
     ctx.arc(x, y - 8, 16, 0, 6.3);
     ctx.stroke();
   }
+  function drawPainted(img, shift, y, destW) {
+    if (!img) return 0;
+    var dw = destW;
+    var dh = dw * img.height / img.width;
+    var extra = Math.max(0, dw - viewW);
+    var slide = reduced() ? 0 : Math.sin(shift / 90) * (extra / 2);
+    ctx.drawImage(img, (viewW - dw) / 2 - slide, y, dw, dh);
+    return dh;
+  }
   function drawGlide(t) {
     var g = ui.glide;
     seedGlide(g);
-    var sky = ctx.createLinearGradient(0, 0, 0, viewH);
-    sky.addColorStop(0, "#12183f");
-    sky.addColorStop(0.42, "#c45b78");
-    sky.addColorStop(1, "#f0b15a");
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, viewW, viewH);
-    ctx.fillStyle = "rgba(255,255,255,.85)";
-    for (var i = 0; i < 18; i++) {
-      var sx = (i * 97 + (g.far || 0) * 0.2) % viewW;
-      var sy = 12 + (i * 53) % Math.floor(viewH * 0.28);
-      ctx.fillRect(sx, sy, i % 4 === 0 ? 2 : 1.5, i % 4 === 0 ? 2 : 1.5);
+    if (imgs.glideSky) {
+      var sky = imgs.glideSky;
+      var cover = Math.max(viewW / sky.width, viewH / sky.height);
+      var dw = sky.width * cover * 1.12;
+      var dh = sky.height * cover * 1.12;
+      var drift = reduced() ? 0 : Math.sin(t / 2400) * 18;
+      ctx.drawImage(sky, (viewW - dw) / 2 + drift, (viewH - dh) * 0.42, dw, dh);
     }
-    var sun = ctx.createRadialGradient(viewW * 0.78, viewH * 0.2, 6, viewW * 0.78, viewH * 0.2, 90);
-    sun.addColorStop(0, "rgba(255,244,210,.95)");
-    sun.addColorStop(1, "rgba(255,244,210,0)");
-    ctx.fillStyle = sun;
-    ctx.beginPath();
-    ctx.arc(viewW * 0.78, viewH * 0.2, 90, 0, 6.3);
-    ctx.fill();
-    g.clouds.forEach(function (c) { puff(c.x, c.y, c.s || 1); });
-    ridge(g.far || 0, viewH * 0.48, "#6d5a86", 34, 18);
-    ridge((g.mid || 0) * 0.6, viewH * 0.6, "#3d6d8a", 22, 16);
-    ridge(g.near || 0, viewH * 0.72, "#217a3c", 16, 14);
-    for (var tx = -40 - ((g.near || 0) % 70); tx < viewW + 40; tx += 54) drawTree(tx, viewH * 0.66, 42);
-    ctx.fillStyle = "#166332";
-    ctx.fillRect(0, viewH * 0.8, viewW, viewH * 0.2);
-    for (var gx = -10 - ((g.near || 0) % 18); gx < viewW + 10; gx += 14) {
-      ctx.strokeStyle = gx % 28 === 0 ? "#d4e27a" : "#0e4a24";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(gx, viewH * 0.84);
-      ctx.quadraticCurveTo(gx + 4, viewH * 0.78, gx + 2, viewH * 0.74);
-      ctx.stroke();
-    }
-    ctx.fillStyle = "#f2d24a";
-    for (var fx = 20; fx < viewW; fx += 46) {
-      ctx.beginPath();
-      ctx.arc(fx, viewH * 0.9, 3, 0, 6.3);
-      ctx.fill();
-    }
-    g.obstacles.forEach(function (o) {
-      if (o.kind === "tree") drawTree(o.x, o.y, o.s);
-      else drawArch(o.x, o.y);
-    });
-    g.rings.forEach(function (r) {
-      if (r.got) return;
-      ctx.strokeStyle = "#ffcf6b";
-      ctx.lineWidth = 4;
-      ctx.beginPath(); ctx.arc(r.x, r.y, 18, 0, 6.3); ctx.stroke();
-      ctx.fillStyle = "rgba(255, 207, 107, .35)";
-      ctx.beginPath(); ctx.arc(r.x, r.y, 10, 0, 6.3); ctx.fill();
-    });
+    if (imgs.glideNear) drawPainted(imgs.glideNear, g.near || 0, viewH * 0.1, viewW * 1.24);
     if (g.dragon) {
       ctx.fillStyle = "rgba(0,0,0,.28)";
       ctx.beginPath();
@@ -768,15 +746,15 @@
     g.vy += 0.00016 * dt;
     g.vy *= 0.992;
     g.y += g.vy * dt;
-    if (g.y < 90) { g.y = 90; g.vy = 0; }
-    if (g.y > viewH - 50) { g.y = viewH - 50; g.vy = 0; }
+    if (g.y < 72) { g.y = 72; g.vy = 0; }
+    if (g.y > viewH * 0.4) { g.y = viewH * 0.4; g.vy = 0; }
     g.rings.forEach(function (r) {
       r.x -= 0.16 * dt;
       if (!r.got && Math.abs(r.x - g.x) < 24 && Math.abs(r.y - g.y) < 26) {
         r.got = true; g.score++; burst(r.x, r.y, "#ffcf6b", 10); floatText(r.x, r.y, "+1"); tone(740, 0, 0.08, "sine", 0.03);
       }
     });
-    g.far += 0.04 * dt; g.mid += 0.09 * dt; g.near += 0.16 * dt;
+    g.far += 0.02 * dt; g.mid += 0.04 * dt; g.near += 0.035 * dt;
     g.clouds.forEach(function (c) { c.x -= 0.05 * dt; });
     g.obstacles.forEach(function (o) {
       o.x -= 0.16 * dt;
@@ -992,88 +970,26 @@
     ctx.fill();
   }
   function drawRoute(t) {
-    var sky = ctx.createLinearGradient(0, 0, 0, viewH);
-    sky.addColorStop(0, "#142046");
-    sky.addColorStop(0.55, "#c46a45");
-    sky.addColorStop(1, "#e7b56a");
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, viewW, viewH);
-    var mx = 12, my = 12, mw = viewW - 24, mh = viewH - 24;
-    ctx.fillStyle = "#1a5278";
-    round(mx, my, mw, mh, 16);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(255,255,255,.18)";
-    ctx.lineWidth = 2;
-    for (var i = 0; i < 5; i++) {
-      ctx.beginPath();
-      ctx.arc(mx + mw * 0.28, my + mh * 0.72, 24 + i * 22, 0.4, 2.4);
-      ctx.stroke();
+    var img = imgs.flight;
+    if (img) {
+      var drift = reduced() ? 0 : Math.sin(t / 2000) * 14;
+      var cover = Math.max(viewW / img.width, viewH / img.height);
+      var dw = img.width * cover * 1.08;
+      var dh = img.height * cover * 1.08;
+      ctx.drawImage(img, (viewW - dw) / 2 + drift, (viewH - dh) / 2, dw, dh);
     }
-    ctx.fillStyle = "#2f8a48";
+    var bob = reduced() ? 0 : Math.sin(t / 480) * 10;
+    var fx = viewW * 0.28, fy = viewH * 0.18 + bob;
+    ctx.fillStyle = "rgba(40, 24, 8, .3)";
     ctx.beginPath();
-    ctx.moveTo(mx + mw * 0.46, my + mh * 0.1);
-    ctx.bezierCurveTo(mx + mw * 0.72, my + mh * 0.08, mx + mw * 0.8, my + mh * 0.36, mx + mw * 0.7, my + mh * 0.55);
-    ctx.bezierCurveTo(mx + mw * 0.84, my + mh * 0.78, mx + mw * 0.52, my + mh * 0.94, mx + mw * 0.38, my + mh * 0.76);
-    ctx.bezierCurveTo(mx + mw * 0.2, my + mh * 0.66, mx + mw * 0.16, my + mh * 0.34, mx + mw * 0.3, my + mh * 0.18);
-    ctx.closePath();
+    ctx.ellipse(fx + 16, viewH * 0.7, 28, 7, 0, 0, 6.3);
     ctx.fill();
-    ctx.fillStyle = "#e7eef5";
-    peak(mx + mw * 0.48, my + mh * 0.28, 16);
-    peak(mx + mw * 0.58, my + mh * 0.22, 22);
-    peak(mx + mw * 0.67, my + mh * 0.3, 14);
-    ctx.fillStyle = "#3aa0d8";
-    ctx.beginPath();
-    ctx.ellipse(mx + mw * 0.5, my + mh * 0.46, mw * 0.07, mh * 0.045, -0.4, 0, 6.3);
-    ctx.fill();
-    ctx.strokeStyle = "#7ec8ea";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(mx + mw * 0.52, my + mh * 0.22);
-    ctx.bezierCurveTo(mx + mw * 0.48, my + mh * 0.4, mx + mw * 0.58, my + mh * 0.5, mx + mw * 0.46, my + mh * 0.7);
-    ctx.stroke();
-    ctx.strokeStyle = "#1d5c30";
-    ctx.lineWidth = 2;
-    for (var r = 0; r < 4; r++) {
-      ctx.beginPath();
-      ctx.ellipse(mx + mw * 0.44, my + mh * 0.6 + r * 7, 22 - r * 2, 4, 0.1, 0, 3.14);
-      ctx.stroke();
-    }
-    drawGlobe(mx + 42, my + 48, 28);
-    var land = ui.flightPlace && imgs["land:" + ui.flightPlace.id];
-    var dx = mx + mw * 0.5, dy = my + mh * 0.4, dw = mw * 0.42, dh = mh * 0.34;
-    ctx.save();
-    round(dx, dy, dw, dh, 12);
-    ctx.clip();
-    if (land) ctx.drawImage(land, dx, dy, dw, dh);
-    else { ctx.fillStyle = "#2f6a40"; ctx.fillRect(dx, dy, dw, dh); }
-    ctx.restore();
-    ctx.strokeStyle = "#ffcf6b";
-    ctx.lineWidth = 3;
-    round(dx, dy, dw, dh, 12);
-    ctx.stroke();
-    ctx.setLineDash([6, 7]);
-    ctx.beginPath();
-    ctx.moveTo(mx + mw * 0.2, my + mh * 0.74);
-    ctx.quadraticCurveTo(mx + mw * 0.36, my + mh * 0.28, dx + 8, dy + dh * 0.45);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    var along = reduced() ? 0.62 : (Math.sin(t / 700) * 0.5 + 0.5);
-    var fx = (mx + mw * 0.2) * (1 - along) + (dx + 8) * along;
-    var fy = (my + mh * 0.74) * (1 - along) + (dy + dh * 0.45) * along - Math.sin(along * 3.14) * 20;
-    ctx.fillStyle = "rgba(0,0,0,.28)";
-    ctx.beginPath();
-    ctx.ellipse(fx + 6, fy + 28, 16, 5, 0, 0, 6.3);
-    ctx.fill();
-    drawCreature({ species: "cinder", stage: 3, rarity: 2, phase: 1, id: "flyer" }, fx, fy, 84, t, false, -0.55);
-    ctx.fillStyle = "#fff8e8";
-    ctx.font = "700 22px Cinzel, serif";
-    ctx.textAlign = "left";
-    if (ui.flightPlace) ctx.fillText(ui.flightPlace.name, mx + 78, my + 32);
+    drawCreature({ species: "cinder", stage: 3, rarity: 2, phase: 1, id: "flyer" }, fx, fy, 120, t, false, -0.72);
   }
   function flightHtml(head) {
     var p = ui.flightPlace;
     var img = imgs["land:" + p.id];
-    if (!ui.flightLanded) return head + '<div class="farm-stage"><canvas aria-label="Flight to ' + esc(p.name) + '"></canvas></div><p class="farm-note">A globe marks the way. The land ahead is ' + esc(p.name) + '.</p><button class="farm-btn gold" data-farm="arrive">Land in ' + esc(p.name) + "</button>";
+    if (!ui.flightLanded) return head + '<div class="farm-stage"><canvas aria-label="Flight to ' + esc(p.name) + '"></canvas></div><p class="farm-note">The painted land ahead is ' + esc(p.name) + '. The meadow stays safe while you fly.</p><button class="farm-btn gold" data-farm="arrive">Land in ' + esc(p.name) + "</button>";
     return head + '<article class="farm-card">' + (img ? '<img alt="The lands of ' + esc(p.name) + '" src="farm/art/land-' + p.id + '.jpg">' : "") + '<p class="farm-kicker">Seed card</p><h3>' + esc(p.name) + "</h3><p>" + esc(p.fact) + '</p><button class="farm-btn gold" data-farm="pocket">Pocket the seeds</button></article>';
   }
 
