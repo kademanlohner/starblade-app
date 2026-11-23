@@ -1386,22 +1386,55 @@
       });
     }
   }
+  function panCover(img, zoom, panX, panY) {
+    var z = zoom < 1.08 ? 1.08 : zoom;
+    var ir = img.width / img.height, cr = viewW / Math.max(1, viewH), dw, dh;
+    if (ir > cr) { dh = viewH * z; dw = dh * ir; }
+    else { dw = viewW * z; dh = dw / ir; }
+    var px = clamp(panX, 0.1, 0.9), py = clamp(panY, 0.1, 0.9);
+    return { x: -(dw - viewW) * px, y: -(dh - viewH) * py, w: dw, h: dh };
+  }
+  var fadeScratch = null;
+  function blitSoft(img, rect, topFade, alpha) {
+    if (!img) return;
+    if (!fadeScratch) fadeScratch = document.createElement("canvas");
+    var w = Math.max(2, viewW | 0), h = Math.max(2, viewH | 0);
+    if (fadeScratch.width !== w || fadeScratch.height !== h) { fadeScratch.width = w; fadeScratch.height = h; }
+    var g = fadeScratch.getContext("2d");
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.clearRect(0, 0, w, h);
+    g.drawImage(img, rect.x, rect.y, rect.w, rect.h);
+    if (topFade > 0) {
+      g.globalCompositeOperation = "destination-in";
+      var grad = g.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, "rgba(0,0,0,0)");
+      grad.addColorStop(topFade * 0.4, "rgba(0,0,0,.45)");
+      grad.addColorStop(topFade, "rgba(0,0,0,1)");
+      grad.addColorStop(1, "rgba(0,0,0,1)");
+      g.fillStyle = grad;
+      g.fillRect(0, 0, w, h);
+      g.globalCompositeOperation = "source-over";
+    }
+    ctx.save();
+    ctx.globalAlpha = alpha == null ? 1 : alpha;
+    ctx.drawImage(fadeScratch, 0, 0, viewW, viewH);
+    ctx.restore();
+  }
   function drawFarRange(scroll) {
     var sky = (ui && ui.sky) || "golden";
     var g = ctx.createLinearGradient(0, 0, 0, viewH);
-    if (sky === "night") { g.addColorStop(0, "#070b22"); g.addColorStop(0.55, "#1a2458"); g.addColorStop(1, "#0e1a30"); }
-    else if (sky === "morning") { g.addColorStop(0, "#8ebbe6"); g.addColorStop(0.45, "#f3d7b0"); g.addColorStop(1, "#c5d8ef"); }
-    else { g.addColorStop(0, "#f0a15a"); g.addColorStop(0.4, "#f6d7a4"); g.addColorStop(1, "#87b4d4"); }
+    if (sky === "night") { g.addColorStop(0, "#070b22"); g.addColorStop(0.55, "#1a2458"); g.addColorStop(1, "#121a38"); }
+    else if (sky === "morning") { g.addColorStop(0, "#8ebbe6"); g.addColorStop(0.5, "#f6e2c4"); g.addColorStop(1, "#d5e4c8"); }
+    else { g.addColorStop(0, "#e8894a"); g.addColorStop(0.45, "#f6d7a2"); g.addColorStop(1, "#f0c27a"); }
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, viewW, viewH);
-    var img = sky === "night" ? (imgs.night || imgs.glideSky) : sky === "morning" ? (imgs.morning || imgs.glideSky) : (imgs.glideSky || imgs.bg);
+    var img = imgs.glideSky;
     if (!img) return;
-    var dh = viewH;
-    var dw = dh * img.width / img.height;
-    var x = -((scroll * 0.16) % dw);
+    var wave = 0.5 + Math.sin(scroll * 0.003) * 0.22;
+    var rect = panCover(img, 1.4, wave, 0.35);
     ctx.save();
-    ctx.globalAlpha = sky === "night" ? 0.72 : 0.95;
-    for (var i = -1; i < 4; i++) ctx.drawImage(img, x + i * dw, 0, dw, dh);
+    ctx.globalAlpha = sky === "night" ? 0.38 : sky === "morning" ? 0.72 : 0.9;
+    ctx.drawImage(img, rect.x, rect.y, rect.w, rect.h);
     ctx.restore();
   }
   function drawDustPuff(x, y, t0, t) {
@@ -1415,39 +1448,13 @@
     ctx.ellipse(x + 14 + u * 32, y + 2, 7 + u * 14, 3.5, 0, 0, 6.2832);
     ctx.fill();
   }
-  var landScratch = null;
   function drawLandmark(scroll, approach) {
     var place = ui.flightPlace;
     var img = place && imgs["land:" + place.id];
     if (!img || approach <= 0.02) return;
-    var w = Math.ceil(viewW * 1.2);
-    var h = Math.ceil(Math.min(viewH * 0.78, w * img.height / img.width));
-    var x = viewW * (1.02 - easeOut(approach) * 0.72) - (scroll % 120) * 0.12;
-    var y = viewH * 0.16;
-    if (!landScratch) landScratch = document.createElement("canvas");
-    if (landScratch.width !== w || landScratch.height !== h) { landScratch.width = w; landScratch.height = h; }
-    var g = landScratch.getContext("2d");
-    g.setTransform(1, 0, 0, 1, 0, 0);
-    g.clearRect(0, 0, w, h);
-    g.drawImage(img, 0, 0, w, h);
-    g.globalCompositeOperation = "destination-in";
-    var fade = g.createLinearGradient(0, 0, w, 0);
-    fade.addColorStop(0, "rgba(0,0,0,0)");
-    fade.addColorStop(0.46, "rgba(0,0,0,1)");
-    fade.addColorStop(1, "rgba(0,0,0,1)");
-    g.fillStyle = fade;
-    g.fillRect(0, 0, w, h);
-    var top = g.createLinearGradient(0, 0, 0, h);
-    top.addColorStop(0, "rgba(0,0,0,0)");
-    top.addColorStop(0.2, "rgba(0,0,0,1)");
-    top.addColorStop(1, "rgba(0,0,0,1)");
-    g.fillStyle = top;
-    g.fillRect(0, 0, w, h);
-    g.globalCompositeOperation = "source-over";
-    ctx.save();
-    ctx.globalAlpha = Math.min(0.95, approach);
-    ctx.drawImage(landScratch, x, y);
-    ctx.restore();
+    var pan = 0.5 + Math.sin(scroll * 0.0022) * 0.18;
+    var rect = panCover(img, 1.28, pan, 0.55);
+    blitSoft(img, rect, 0.46, Math.min(1, approach));
   }
   function freshAir() {
     var d = selectedDragon();
@@ -1529,17 +1536,14 @@
     if (skyMix > 0) {
       ctx.save();
       ctx.globalAlpha = skyMix;
-      drawFarRange(rig.scroll + (rig.camX - rig.x) * 0.2);
-      drawSkyBits(rig, "back");
+      drawFarRange(rig.scroll);
+      var approach = rig.phase === "cruise" ? clamp((t - rig.t0 - 400) / 1600, 0, 1) : rig.phase === "landing" ? 1 : 0;
+      drawLandmark(rig.scroll * 1.4, approach);
+      if (quality !== "low") drawSkyBits(rig, "back");
       ctx.restore();
     }
     ctx.save();
-    ctx.translate(viewW * 0.5, viewH * 0.42);
-    ctx.scale(rig.zoom, rig.zoom);
-    ctx.translate(-viewW * 0.5, -viewH * 0.42);
     ctx.translate(viewW * 0.46 - rig.camX, viewH * 0.4 - rig.camY);
-    var approach = rig.phase === "cruise" ? clamp((t - rig.t0 - 700) / 2000, 0, 1) : rig.phase === "landing" ? 1 : skyMix * 0.3;
-    if (quality !== "low" && skyMix > 0.2) drawLandmark(rig.scroll, approach);
     drawDustPuff(rig.x, rig.phase === "takeoff" ? viewH * 0.8 : rig.y + 70, rig.dustT, t);
     var flyer = rig.dragon && rig.dragon.stage ? rig.dragon : selectedDragon();
     drawFlyer(flyer, rig.x, rig.y, Math.min(viewW, viewH) * 0.38, t, rig);
