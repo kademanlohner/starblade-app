@@ -7,18 +7,59 @@
 <title>Starblade Academy · For Parents</title>
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <style>
-  body { margin: 0; background: #0b0a1f; color: #f6f3ff; font: 18px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  @font-face { font-family: Cinzel; font-style: normal; font-weight: 700; font-display: swap; src: url(fonts/cinzel.woff2) format("woff2"); }
+  @font-face { font-family: Lexend; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/lexend.woff2) format("woff2"); }
+  body { margin: 0; background: #0b0a1f; color: #f6f3ff; font: 18px/1.55 Lexend, "Avenir Next", "Segoe UI", system-ui, sans-serif; overflow-x: hidden; }
   main { max-width: 40rem; margin: 0 auto; padding: 28px 20px 72px; }
-  h1 { color: #ffcf6b; font-size: 32px; line-height: 1.2; margin: 12px 0; }
-  h2 { color: #ffcf6b; font-size: 22px; line-height: 1.3; margin: 28px 0 8px; }
+  h1, h2, h3 { font-family: Cinzel, "Times New Roman", serif; color: #ffcf6b; }
+  h1 { font-size: 32px; line-height: 1.2; margin: 12px 0; }
+  h2 { font-size: 22px; line-height: 1.3; margin: 28px 0 8px; }
   p, li { margin: 8px 0; }
   ol, ul { padding-left: 1.2em; }
   a { color: #6fe3ff; }
   .muted { color: #b3afdb; }
+  .mission { margin: 0 0 8px; }
+  .mission-lead, .tagline { font-size: 19px; line-height: 1.5; }
+  .tagline { color: #ffcf6b; font-family: Cinzel, "Times New Roman", serif; font-size: 20px; line-height: 1.35; margin-top: 16px; }
+  .pillars { display: grid; grid-template-columns: 1fr; gap: 12px; margin: 12px 0 16px; }
+  .pillar { background: #16132e; border: 1px solid rgba(255, 207, 107, .35); border-radius: 16px; padding: 14px 16px 12px; min-width: 0; }
+  .pillar-top { display: flex; align-items: center; gap: 10px; }
+  .pillar-icon { font-size: 28px; line-height: 1; flex: 0 0 auto; }
+  .pillar h3 { font-size: 18px; line-height: 1.2; margin: 0; }
+  .pillar p { margin: 8px 0 0; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
 <main>
+<section class="mission">
+<h2>StarBlade Mission</h2>
+<p class="mission-lead">"StarBlade helps every kid grow a little braver, kinder, and more capable each day, without shame and without needing to be perfect."</p>
+<h3>How we do it, for each kid:</h3>
+<div class="pillars">
+<article class="pillar">
+<div class="pillar-top"><span class="pillar-icon" aria-hidden="true">💛</span><h3>Love:</h3></div>
+<p>Every kid starts every day as a hero. Stars are earned and never taken away.</p>
+</article>
+<article class="pillar">
+<div class="pillar-top"><span class="pillar-icon" aria-hidden="true">🪜</span><h3>Structure:</h3></div>
+<p>Small, clear quests, one step at a time, so kids learn that showing up is what builds strength.</p>
+</article>
+<article class="pillar">
+<div class="pillar-top"><span class="pillar-icon" aria-hidden="true">🤝</span><h3>Trust:</h3></div>
+<p>Kids keep their promises to themselves, and parents cheer the effort, not just the result.</p>
+</article>
+<article class="pillar">
+<div class="pillar-top"><span class="pillar-icon" aria-hidden="true">🌟</span><h3>Freedom:</h3></div>
+<p>Kids choose their path and their quests within limits parents set.</p>
+</article>
+<article class="pillar">
+<div class="pillar-top"><span class="pillar-icon" aria-hidden="true">🌱</span><h3>Repair:</h3></div>
+<p>A missed day isn't a failure. Kids learn to try again, fix it, and keep going.</p>
+</article>
+</div>
+<p>Our promise to parents: high warmth and high expectations. StarBlade never uses fear, ranks one kid against another, or makes a kid feel small, and it gives parents a clear way to notice and celebrate real growth.</p>
+<p class="tagline">"StarBlade: small quests, real growth, never stop growing."</p>
+</section>
 <p class="muted">Starblade Academy</p>
 <h1>For Parents</h1>
 <p>Starblade Academy is a learning game: math, reading, writing, drawing, geography, and a pet dragon. This page is for grown-ups.</p>
