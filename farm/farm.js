@@ -203,7 +203,7 @@
   }
 
   function loadImages(done) {
-    var jobs = [["bg", "farm/art/farm-bg.jpg"], ["glideSky", "farm/art/glide-sky.jpg"], ["glideNear", "farm/art/glide-near.png"], ["flight", "farm/art/flight-andes.jpg"], ["crop0", "farm/art/crop-seed.png"], ["crop1", "farm/art/crop-sprout.png"], ["crop2", "farm/art/crop-leaf.png"], ["crop3", "farm/art/crop-harvest.png"]];
+    var jobs = [["bg", "farm/art/farm-bg.jpg"], ["morning", "farm/art/meadow-morning.jpg"], ["night", "farm/art/meadow-night.jpg"], ["map", "farm/art/world-map.jpg"], ["stage", "farm/art/fair-stage.png"], ["glideSky", "farm/art/glide-sky.jpg"], ["glideNear", "farm/art/glide-near.png"], ["flight", "farm/art/flight-andes.jpg"], ["crop0", "farm/art/crop-seed.png"], ["crop1", "farm/art/crop-sprout.png"], ["crop2", "farm/art/crop-leaf.png"], ["crop3", "farm/art/crop-harvest.png"]];
     SPECIES.forEach(function (id) { for (var i = 0; i < 5; i++) jobs.push(["s:" + id + ":" + i, "farm/art/" + id + "-" + i + ".png"]); });
     PLACES.forEach(function (p) { jobs.push(["land:" + p.id, "farm/art/land-" + p.id + ".jpg"]); });
     var left = jobs.length;
@@ -296,6 +296,11 @@
     ctx.arcTo(x, y + h, x, y, r);
     ctx.arcTo(x, y, x + w, y, r);
     ctx.closePath();
+  }
+  function meadowArt() {
+    if (ui && ui.sky === "night" && imgs.night) return imgs.night;
+    if (ui && ui.sky === "morning" && imgs.morning) return imgs.morning;
+    return imgs.bg;
   }
   function drawCover(img) {
     if (!img) return;
@@ -599,29 +604,30 @@
   }
   function drawSkyWash() {
     var sky = (ui && ui.sky) || "golden";
-    if (sky === "night") ctx.fillStyle = "rgba(8, 12, 36, .48)";
-    else if (sky === "morning") ctx.fillStyle = "rgba(255,236,200,.16)";
-    else ctx.fillStyle = "rgba(255,140,40,.14)";
-    ctx.fillRect(0, 0, viewW, viewH);
-    if (sky === "night") {
-      ctx.fillStyle = "rgba(255,255,255,.9)";
-      for (var i = 0; i < 22; i++) {
-        var tw = (i % 5 === 0) ? 2.2 : 1.3;
-        ctx.fillRect((i * 67) % viewW, (i * 41) % (viewH * 0.55), tw, tw);
-      }
-    }
+    if (sky === "night" && imgs.night) return;
+    if (sky === "morning" && imgs.morning) return;
+    if (sky === "golden") return;
   }
   function drawSwirl(t) {
     if (!ui || !ui.swirl) return;
     var age = t - ui.swirl.t0;
-    if (age > 700) { ui.swirl = null; return; }
+    if (age > 1100) { ui.swirl = null; return; }
+    if (age < 160) {
+      ctx.fillStyle = "rgba(255, 248, 220, " + (0.72 - age / 220) + ")";
+      ctx.fillRect(0, 0, viewW, viewH);
+    }
     ctx.save();
     ctx.translate(ui.swirl.x, ui.swirl.y);
-    ctx.rotate(age / 80);
-    ctx.strokeStyle = "rgba(255,207,107," + (1 - age / 700) + ")";
+    ctx.rotate(age / 55);
+    ctx.strokeStyle = "rgba(255, 246, 210, " + (1 - age / 1100) + ")";
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.arc(0, 0, 26 + age / 7, 0.4, 5.2);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(255, 140, 40, " + (1 - age / 1100) + ")";
     ctx.lineWidth = 4;
     ctx.beginPath();
-    ctx.arc(0, 0, 18 + age / 18, 0, 4.2);
+    ctx.arc(0, 0, 12 + age / 9, 1.2, 5.6);
     ctx.stroke();
     ctx.restore();
   }
@@ -651,7 +657,7 @@
     else if (ui.mode === "flight" && !ui.flightLanded) drawRoute(t);
     else if (ui.mode === "gallery") drawGallery(t);
     else {
-      drawCover(imgs.bg);
+      drawCover(meadowArt());
       if (ui.mode === "farm" || ui.mode === "hunt" || ui.mode === "fair") drawLife(t);
       var wash = ctx.createLinearGradient(0, 0, 0, viewH);
       wash.addColorStop(0, "rgba(255,210,120,.08)");
@@ -684,7 +690,11 @@
   }
 
   function byId(id) { return st.dragons.filter(function (d) { return d.id === id; })[0]; }
-  function selectedDragon() { return byId(ui.selected) || st.dragons.filter(function (d) { return d.stage > 0; })[0] || st.dragons[0]; }
+  function selectedDragon() {
+    var picked = byId(ui.selected);
+    if (picked && picked.stage) return picked;
+    return st.dragons.filter(function (d) { return d.stage > 0; })[0] || picked || st.dragons[0];
+  }
 
   function hatch() {
     if (ui.hatch) return;
@@ -1015,65 +1025,15 @@
     });
   }
   function drawFair(t) {
-    drawCover(imgs.bg);
-    ctx.fillStyle = "rgba(28, 12, 40, .45)";
-    ctx.fillRect(0, 0, viewW, viewH);
-    var colors = ["#e23d3d", "#ffcf6b", "#3aa0d8", "#7dce45", "#e23d3d", "#ffcf6b"];
-    ctx.strokeStyle = "#5a3318";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(16, 58);
-    ctx.lineTo(viewW - 16, 58);
-    ctx.stroke();
-    for (var i = 0; i < 6; i++) {
-      var bx = 28 + i * ((viewW - 56) / 5);
-      ctx.fillStyle = colors[i];
-      ctx.beginPath();
-      ctx.moveTo(bx - 12, 58);
-      ctx.lineTo(bx + 12, 58);
-      ctx.lineTo(bx, 78);
-      ctx.fill();
-    }
-    ctx.fillStyle = "#6b3a22";
-    round(viewW * 0.14, viewH * 0.62, viewW * 0.72, viewH * 0.16, 10);
-    ctx.fill();
-    ctx.fillStyle = "#a56b3c";
-    ctx.fillRect(viewW * 0.14, viewH * 0.62, viewW * 0.72, 8);
-    ctx.strokeStyle = "rgba(60,30,12,.45)";
-    ctx.lineWidth = 2;
-    for (var plank = 1; plank <= 3; plank++) {
-      var py = viewH * 0.62 + plank * (viewH * 0.16) / 4;
-      ctx.beginPath();
-      ctx.moveTo(viewW * 0.16, py);
-      ctx.lineTo(viewW * 0.84, py);
-      ctx.stroke();
-    }
-    ctx.fillStyle = "#e23d3d";
-    ctx.fillRect(viewW * 0.7, viewH * 0.5, 8, viewH * 0.14);
-    ctx.beginPath();
-    ctx.moveTo(viewW * 0.7, viewH * 0.5);
-    ctx.lineTo(viewW * 0.84, viewH * 0.54);
-    ctx.lineTo(viewW * 0.7, viewH * 0.58);
-    ctx.fill();
-    for (var n = 0; n < 5; n++) {
-      var lx = viewW * (0.18 + n * 0.16);
-      ctx.strokeStyle = "#4a2a14";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(lx, viewH * 0.62);
-      ctx.lineTo(lx, viewH * 0.22);
-      ctx.stroke();
-      ctx.fillStyle = "#ffcf6b";
-      ctx.beginPath();
-      ctx.arc(lx, viewH * 0.24 + Math.sin(t / 280 + n) * 3, 9, 0, 6.3);
-      ctx.fill();
-      ctx.fillStyle = "rgba(255, 207, 107, .28)";
-      ctx.beginPath();
-      ctx.arc(lx, viewH * 0.24, 18, 0, 6.3);
-      ctx.fill();
+    drawCover(meadowArt());
+    if (imgs.stage) {
+      var sw = viewW * 0.96;
+      var sh = sw * imgs.stage.height / imgs.stage.width;
+      var sy = viewH - sh + viewH * 0.02;
+      ctx.drawImage(imgs.stage, (viewW - sw) / 2, sy, sw, sh);
     }
     var d = selectedDragon();
-    if (d) drawCreature(d, viewW / 2, viewH * 0.58, Math.min(viewW, viewH) * 0.42, t, false);
+    if (d) drawCreature(d, viewW * 0.52, viewH * 0.7, Math.min(viewW, viewH) * 0.3, t, false);
     ctx.fillStyle = "rgba(16, 10, 28, .55)";
     round(viewW / 2 - 100, 8, 200, 36, 12);
     ctx.fill();
@@ -1097,6 +1057,30 @@
     });
   }
 
+  function ico(name) {
+    var d = {
+      back: '<path d="M15 5 L7 12 L15 19" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>',
+      sun: '<circle cx="12" cy="12" r="4" fill="currentColor"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.2 5.2l1.6 1.6M17.2 17.2l1.6 1.6M18.8 5.2l-1.6 1.6M6.8 17.2l-1.6 1.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+      moon: '<path d="M15 3.2a7.6 7.6 0 1 0 5.6 12.6A6.4 6.4 0 0 1 15 3.2z" fill="currentColor"/>',
+      sound: '<path d="M4 10h3.5L13 6v12l-5.5-4H4z" fill="currentColor"/><path d="M16 9.2a4 4 0 0 1 0 5.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+      quiet: '<path d="M4 10h3.5L13 6v12l-5.5-4H4z" fill="currentColor"/><path d="M17 9l5 6M22 9l-5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+      egg: '<ellipse cx="12" cy="13.5" rx="6" ry="7.5" fill="currentColor"/>',
+      snack: '<path d="M4 15c1.5-6 14.5-6 16 0v2H4z" fill="currentColor"/>',
+      merge: '<path d="M6 17l6-10 6 10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>',
+      water: '<path d="M12 3.2S18 10 18 14.2a6 6 0 0 1-12 0C6 10 12 3.2 12 3.2z" fill="currentColor"/>',
+      basket: '<path d="M5 10h14l-1.4 9H6.4z" fill="currentColor"/><path d="M8 10c0-3.2 8-3.2 8 0" fill="none" stroke="currentColor" stroke-width="2"/>',
+      sprout: '<path d="M12 21V11" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M12 13C8 12 6 8 7 5c4 .2 6 4 5 8zM12 12c4-1 6-5 5-8-4 .2-6 4-5 8z" fill="currentColor"/>',
+      wing: '<path d="M3 14c5-8 13-9 18-3-6 1-11 4-13 8-1.6-1.6-3.4-3.4-5-5z" fill="currentColor"/>',
+      play: '<path d="M8 5.2l11 6.8-11 6.8z" fill="currentColor"/>',
+      pin: '<path d="M12 21s6.5-6.2 6.5-11A6.5 6.5 0 0 0 5.5 10C5.5 14.8 12 21 12 21z" fill="currentColor"/><circle cx="12" cy="10" r="2.1" fill="#3a2412"/>',
+      home: '<path d="M4 11.5 L12 5 L20 11.5 V20 H4 Z" fill="currentColor"/>',
+      kinds: '<circle cx="8" cy="12" r="3" fill="currentColor"/><circle cx="16" cy="12" r="3" fill="currentColor"/>'
+    }[name] || "";
+    return '<svg class="farm-ico" viewBox="0 0 24 24" aria-hidden="true">' + d + "</svg>";
+  }
+  function btn(cls, act, iconName, label, id) {
+    return '<button class="farm-btn' + (cls ? " " + cls : "") + '"' + (id ? ' id="' + id + '"' : "") + ' data-farm="' + act + '">' + ico(iconName) + "<span>" + label + "</span></button>";
+  }
   function paint() {
     if (!root || !st) return;
     var hello = st.hello || st.note;
@@ -1107,30 +1091,31 @@
     if (!raf) raf = requestAnimationFrame(frame);
   }
   function shell() {
-    var head = '<div class="farm-top"><div><h2>' + title() + '</h2><p>' + st.dragons.length + " dragons · farm stars " + (st.stars || 0) + " · pantry " + pantryCount() + '</p></div><div class="farm-row"><button class="farm-btn" data-farm="back">Back</button><button class="farm-btn" data-farm="sky">' + skyWord() + '</button><button class="farm-btn" data-farm="mute">' + (soundOn ? "Sound on" : "Sound off") + "</button></div></div>";
+    var skyIcon = ui.sky === "night" ? "moon" : "sun";
+    var head = '<div class="farm-top"><div><h2>' + title() + '</h2><p>' + st.dragons.length + " dragons · farm stars " + (st.stars || 0) + " · pantry " + pantryCount() + '</p></div><div class="farm-row">' + btn("", "back", "back", "Back") + btn("", "sky", skyIcon, skyWord()) + btn("", "mute", soundOn ? "sound" : "quiet", soundOn ? "Sound on" : "Sound off") + "</div></div>";
     if (ui.mode === "flight") return flightHtml(head);
-    if (ui.mode === "gallery") return head + '<div class="farm-stage"><canvas aria-label="Dragon kinds"></canvas></div><p class="farm-note">Six kinds, from baby to elder. Eggs are the start. Elders wear a brighter trim. Rarity is a glow, not a rank against anyone.</p><button class="farm-btn" data-farm="home">Back to the meadow</button>';
-    if (ui.phase === "start") return head + card(ui.mode) + '<button class="farm-btn gold" data-farm="begin">Begin</button><button class="farm-btn" data-farm="home">Not now</button>';
-    if (ui.phase === "end") return head + '<article class="farm-card"><p class="farm-kicker">' + esc(title()) + " · Stars earned</p><h3>" + esc(ui.note) + '</h3><p>Stars only go up. You have ' + st.stars + ' farm stars.</p><button class="farm-btn gold" data-farm="again">Play again</button><button class="farm-btn" data-farm="home">Back to the meadow</button></article>';
-    if (ui.mode === "glide" && ui.phase === "play") return head + '<div class="farm-stage"><canvas aria-label="Lantern glide"></canvas></div><p class="farm-note">Hold to rise. Let go to glide. Each light you pass adds a star at the end.</p><div class="farm-row"><button class="farm-btn gold" id="farm-rise" data-farm="rise">Hold to rise</button><button class="farm-btn" data-farm="glide-end">Land softly</button></div>';
+    if (ui.mode === "gallery") return head + '<div class="farm-stage"><canvas aria-label="Dragon kinds"></canvas></div><p class="farm-note">Six kinds, from baby to elder. Eggs are the start. Elders wear a brighter trim. Rarity is a glow, not a rank against anyone.</p>' + btn("", "home", "home", "Back to the meadow");
+    if (ui.phase === "start") return head + card(ui.mode) + btn("gold", "begin", "play", "Begin") + btn("", "home", "home", "Not now");
+    if (ui.phase === "end") return head + '<article class="farm-card"><p class="farm-kicker">' + esc(title()) + " · Stars earned</p><h3>" + esc(ui.note) + '</h3><p>Stars only go up. You have ' + st.stars + ' farm stars.</p>' + btn("gold", "again", "play", "Play again") + btn("", "home", "home", "Back to the meadow") + "</article>";
+    if (ui.mode === "glide" && ui.phase === "play") return head + '<div class="farm-stage"><canvas aria-label="Lantern glide"></canvas></div><p class="farm-note">Hold to rise. Let go to glide. Each light you pass adds a star at the end.</p><div class="farm-row">' + btn("gold", "rise", "wing", "Hold to rise", "farm-rise") + btn("", "glide-end", "pin", "Land softly") + "</div>";
     if (ui.mode === "hunt" && ui.phase === "play") return head + '<div class="farm-stage"><canvas aria-label="Egg garden"></canvas></div><p class="farm-note">Tap each glowing egg in the meadow. ' + (ui.hunt ? ui.hunt.found : 0) + ' of 5 found. Take your time.</p>';
-    if (ui.mode === "fair" && ui.phase === "play") return head + '<div class="farm-stage"><canvas aria-label="Harvest fair"></canvas></div><p class="farm-note">One dragon, one ribbon. This is a celebration, not a race.</p><div class="farm-row"><button class="farm-btn gold" data-farm="ribbon">Give the ribbon</button></div>';
+    if (ui.mode === "fair" && ui.phase === "play") return head + '<div class="farm-stage"><canvas aria-label="Harvest fair"></canvas></div><p class="farm-note">One dragon, one ribbon. This is a celebration, not a race.</p><div class="farm-row">' + btn("gold", "ribbon", "pin", "Give the ribbon") + "</div>";
     var garden = ui.panel === "garden" ? '<div class="farm-sheet"><p class="farm-kicker">Plant a seed</p><p>' + esc(LESSON) + '</p><div class="farm-row">' + Object.keys(CROPS).filter(function (id) { return st.found[id]; }).map(function (id) { return '<button class="farm-btn" data-farm="plant:' + id + '">' + esc(CROPS[id].name) + " " + (st.seeds[id] || 0) + "</button>"; }).join("") + "</div></div>" : "";
-    var fly = ui.panel === "fly" ? '<div class="farm-sheet"><p class="farm-kicker">Seed flights</p><p>Each landing shows the land and pockets seeds. Seeds are never taken back.</p><div class="farm-row">' + PLACES.map(function (p) { return '<button class="farm-btn" data-farm="place:' + p.id + '">' + esc(p.name) + "</button>"; }).join("") + "</div></div>" : "";
-    var play = ui.panel === "play" ? '<div class="farm-sheet"><p class="farm-kicker">Play</p><div class="farm-row"><button class="farm-btn gold" data-farm="glide">Lantern glide</button><button class="farm-btn gold" data-farm="hunt">Egg garden</button><button class="farm-btn gold" data-farm="fair">Harvest fair</button></div></div>' : "";
+    var fly = ui.panel === "fly" ? '<div class="farm-sheet"><p class="farm-kicker">Seed flights</p><p>Each landing shows the land and pockets seeds. Seeds are never taken back.</p><div class="farm-row">' + PLACES.map(function (p) { return btn("", "place:" + p.id, "pin", esc(p.name)); }).join("") + "</div></div>" : "";
+    var play = ui.panel === "play" ? '<div class="farm-sheet"><p class="farm-kicker">Play</p><div class="farm-row">' + btn("gold", "glide", "wing", "Lantern glide") + btn("gold", "hunt", "egg", "Egg garden") + btn("gold", "fair", "pin", "Harvest fair") + "</div></div>" : "";
     return head
       + '<div class="farm-stage"><canvas aria-label="Dragon farm meadow"></canvas></div>'
       + '<p class="farm-note">' + esc(ui.note || "Drag a dragon onto a match. Water the soil. Everyone stays.") + "</p>"
       + '<div class="farm-row">'
-      + '<button class="farm-btn gold" data-farm="hatch">Warm an egg</button>'
-      + '<button class="farm-btn gold" data-farm="feed">Share a snack</button>'
-      + '<button class="farm-btn gold" data-farm="merge">Welcome a bigger one</button>'
-      + '<button class="farm-btn" data-farm="water">Water</button>'
-      + '<button class="farm-btn" data-farm="harvest">Gather</button>'
-      + '<button class="farm-btn" data-farm="panel:garden">Plant</button>'
-      + '<button class="farm-btn" data-farm="panel:fly">Fly</button>'
-      + '<button class="farm-btn" data-farm="panel:play">Play</button>'
-      + '<button class="farm-btn" data-farm="gallery">Kinds</button>'
+      + btn("gold", "hatch", "egg", "Warm an egg")
+      + btn("gold", "feed", "snack", "Share a snack")
+      + btn("gold", "merge", "merge", "Welcome a bigger one")
+      + btn("", "water", "water", "Water")
+      + btn("", "harvest", "basket", "Gather")
+      + btn("", "panel:garden", "sprout", "Plant")
+      + btn("", "panel:fly", "wing", "Fly")
+      + btn("", "panel:play", "play", "Play")
+      + btn("", "gallery", "kinds", "Kinds")
       + "</div>" + garden + fly + play;
   }
   function skyWord() {
@@ -1179,60 +1164,53 @@
     ctx.lineTo(x - s * 0.7, y + s * 0.35);
     ctx.fill();
   }
+  var ROUTE = {
+    mexico: [0.2, 0.46], peru: [0.24, 0.62], italy: [0.48, 0.4],
+    ethiopia: [0.54, 0.56], india: [0.66, 0.48], china: [0.76, 0.4], australia: [0.82, 0.64]
+  };
   function drawRoute(t) {
     var place = ui.flightPlace;
-    var img = (place && place.id === "peru" && imgs.flight) || (place && imgs["land:" + place.id]) || imgs.flight;
-    if (imgs.glideSky && quality !== "low") {
-      ctx.save();
-      ctx.globalAlpha = 0.35;
-      var w = viewW * 1.2;
-      var x = -((t * 0.02) % w);
-      ctx.drawImage(imgs.glideSky, x, 0, w, viewH * 0.45);
-      ctx.restore();
-    }
-    if (img) {
-      var drift = reduced() ? 0 : Math.sin(t / 1800) * 16;
-      var cover = Math.max(viewW / img.width, viewH / img.height);
-      var dw = img.width * cover * 1.08;
-      var dh = img.height * cover * 1.08;
-      ctx.drawImage(img, (viewW - dw) / 2 + drift, (viewH - dh) / 2, dw, dh);
-    }
-    if (img && quality !== "low") {
-      var gx = viewW * 0.16, gy = viewH * 0.16, gr = Math.min(viewW, viewH) * 0.11;
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(gx, gy, gr, 0, 6.3);
-      ctx.clip();
-      var spin = reduced() ? 0 : (t / 40) % img.width;
-      ctx.drawImage(img, gx - gr - spin * 0.05, gy - gr, gr * 2.4, gr * 2);
-      ctx.restore();
-      ctx.strokeStyle = "rgba(255,207,107,.85)";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(gx, gy, gr, 0, 6.3);
-      ctx.stroke();
-    }
-    var along = reduced() ? 0.45 : (Math.sin(t / 900) * 0.5 + 0.5);
-    var fx = viewW * (0.22 + along * 0.35);
-    var fy = viewH * (0.28 - Math.sin(along * 3.14) * 0.08);
-    ctx.fillStyle = "rgba(40, 24, 8, .28)";
+    var map = imgs.map;
+    if (map) drawCover(map);
+    else drawCover(imgs.flight);
+    var spot = (place && ROUTE[place.id]) || [0.5, 0.5];
+    var x0 = viewW * 0.42, y0 = viewH * 0.78;
+    var x1 = viewW * spot[0], y1 = viewH * spot[1];
+    var along = reduced() ? 0.72 : (Math.sin(t / 1100) * 0.5 + 0.5);
+    var mx = x0 + (x1 - x0) * along;
+    var my = y0 + (y1 - y0) * along - Math.sin(along * 3.14) * viewH * 0.08;
+    ctx.strokeStyle = "rgba(255, 207, 107, .9)";
+    ctx.lineWidth = 3;
+    ctx.setLineDash([7, 8]);
     ctx.beginPath();
-    ctx.ellipse(fx + 18, fy + 70, 26, 7, 0, 0, 6.3);
+    ctx.moveTo(x0, y0);
+    ctx.quadraticCurveTo((x0 + x1) / 2, Math.min(y0, y1) - 30, x1, y1);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "#ffcf6b";
+    ctx.beginPath();
+    ctx.arc(x1, y1, 7, 0, 6.3);
     ctx.fill();
-    if (quality !== "low" && !reduced()) burst(fx - 24, fy + 8, "rgba(255,220,140,.7)", 1);
-    drawCreature({ species: "cinder", stage: 3, rarity: 2, phase: 1, id: "flyer" }, fx, fy, 118, t, false, -0.7 - along * 0.15);
+    ctx.strokeStyle = "#fff6df";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    if (quality !== "low" && !reduced()) burst(mx - 18, my + 8, "rgba(255,220,140,.8)", 1);
+    drawCreature({ species: "cinder", stage: 3, rarity: 2, phase: 1, id: "flyer" }, mx, my, 96, t, false, -0.65);
     if (place) {
+      ctx.fillStyle = "rgba(16, 12, 28, .55)";
+      round(12, 12, Math.min(220, viewW - 24), 36, 12);
+      ctx.fill();
       ctx.fillStyle = "#fff8e8";
-      ctx.font = "700 22px Cinzel, serif";
+      ctx.font = "700 20px Cinzel, serif";
       ctx.textAlign = "left";
-      ctx.fillText(place.name, 16, 32);
+      ctx.fillText(place.name, 24, 36);
     }
   }
   function flightHtml(head) {
     var p = ui.flightPlace;
     var img = imgs["land:" + p.id];
-    if (!ui.flightLanded) return head + '<div class="farm-stage"><canvas aria-label="Flight to ' + esc(p.name) + '"></canvas></div><p class="farm-note">The painted land ahead is ' + esc(p.name) + '. The meadow stays safe while you fly.</p><button class="farm-btn gold" data-farm="arrive">Land in ' + esc(p.name) + "</button>";
-    return head + '<article class="farm-card">' + (img ? '<img alt="The lands of ' + esc(p.name) + '" src="farm/art/land-' + p.id + '.jpg">' : "") + '<p class="farm-kicker">Seed card</p><h3>' + esc(p.name) + "</h3><p>" + esc(p.fact) + '</p><button class="farm-btn gold" data-farm="pocket">Pocket the seeds</button></article>';
+    if (!ui.flightLanded) return head + '<div class="farm-stage"><canvas aria-label="Flight to ' + esc(p.name) + '"></canvas></div><p class="farm-note">The dragon is crossing the map toward ' + esc(p.name) + '. Each country has its own painted land.</p>' + btn("gold", "arrive", "pin", "Land in " + esc(p.name));
+    return head + '<article class="farm-card">' + (img ? '<img alt="The lands of ' + esc(p.name) + '" src="farm/art/land-' + p.id + '.jpg">' : "") + '<p class="farm-kicker">Seed card</p><h3>' + esc(p.name) + "</h3><p>" + esc(p.fact) + '</p>' + btn("gold", "pocket", "basket", "Pocket the seeds") + "</article>";
   }
 
   function bind() {
