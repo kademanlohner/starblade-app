@@ -241,7 +241,7 @@
       var col = i % c, row = Math.floor(i / c);
       board.push({ i: i, x: ox + col * size + 2, y: top + row * size + 2, s: size - 4 });
     }
-    var beds = st.plots.length, gap = 6, y = viewH * 0.82, h = Math.max(36, viewH * 0.14);
+    var beds = st.plots.length, gap = 8, h = Math.max(78, viewH * 0.24), y = viewH - h - 8;
     var w = Math.min(78, (viewW - 16 - gap * (beds - 1)) / beds);
     var x0 = (viewW - (w * beds + gap * (beds - 1))) / 2;
     plotsBox = [];
@@ -299,14 +299,13 @@
     else { dw = viewW; dh = dw / ir; dx = 0; dy = (viewH - dh) / 2; }
     ctx.drawImage(img, dx, dy, dw, dh);
   }
-  function drawCreature(d, x, y, size, t, ghost) {
+  function drawCreature(d, x, y, size, t, ghost, tilt) {
     var img = sprite(d);
     ctx.save();
     ctx.translate(x, y);
-    if (!reduced()) {
-      ctx.rotate(Math.sin(t / 220 + d.phase) * 0.06);
-      ctx.scale(1, 1 + Math.sin(t / 520 + d.phase) * 0.035);
-    }
+    var flap = reduced() ? 0 : Math.sin(t / 180 + (d.phase || 0)) * (tilt ? 0.18 : 0.06);
+    ctx.rotate((tilt || 0) + flap);
+    if (!reduced()) ctx.scale(1, 1 + Math.sin(t / 520 + (d.phase || 0)) * 0.035);
     if (ghost) ctx.globalAlpha = 0.85;
     var glow = ["transparent", "rgba(255,255,255,.35)", "rgba(180,220,255,.55)", "rgba(255,207,107,.75)"][d.rarity] || "transparent";
     if (d.rarity) {
@@ -326,45 +325,101 @@
   }
   function drawCrop(plot, box) {
     var x = box.x, y = box.y, w = box.w, h = box.h;
-    ctx.fillStyle = "#6b3f1d";
-    round(x, y, w, h, 10); ctx.fill();
-    ctx.fillStyle = "#8a5a32";
-    ctx.beginPath();
-    ctx.ellipse(x + w * 0.3, y + h * 0.35, w * 0.12, 4, 0, 0, 6.3);
-    ctx.ellipse(x + w * 0.68, y + h * 0.55, w * 0.16, 5, 0, 0, 6.3);
+    var bedTop = y + h * 0.42;
+    ctx.fillStyle = "#5c3318";
+    round(x, bedTop, w, h - (bedTop - y), 8);
     ctx.fill();
-    ctx.fillStyle = "#3e2412";
-    for (var i = 0; i < 5; i++) ctx.fillRect(x + 5 + (i * w) / 6, y + h - 9, 5, 3);
-    if (!plot) {
+    ctx.fillStyle = "#8b5a2b";
+    ctx.fillRect(x + 3, bedTop, w - 6, 6);
+    ctx.fillStyle = "#3d2412";
+    ctx.fillRect(x + 2, y + h - 7, w - 4, 5);
+    var sx = x + 5, sy = bedTop + 8, sw = w - 10, sh = y + h - sy - 8;
+    var soil = ctx.createLinearGradient(sx, sy, sx, sy + sh);
+    soil.addColorStop(0, "#6b3e1c");
+    soil.addColorStop(1, "#2c160c");
+    ctx.fillStyle = soil;
+    ctx.fillRect(sx, sy, sw, sh);
+    for (var row = 0; row < 4; row++) {
+      var yy = sy + 5 + row * Math.max(4, (sh - 8) / 4);
+      ctx.strokeStyle = "#241008";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(sx + 2, yy);
+      ctx.bezierCurveTo(sx + sw * 0.35, yy + 2.5, sx + sw * 0.65, yy - 2, sx + sw - 2, yy);
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(214, 164, 110, .55)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(sx + 2, yy + 2);
+      ctx.bezierCurveTo(sx + sw * 0.35, yy + 4, sx + sw * 0.65, yy, sx + sw - 2, yy + 2);
+      ctx.stroke();
+    }
+    if (!plot) return;
+    var c = CROPS[plot.crop] || { part: "seed" };
+    var step = plot.step || 0;
+    var cx = x + w / 2;
+    var ground = bedTop + 2;
+    function leaf(lx, ly, rx, ry, rot, color) {
+      ctx.save();
+      ctx.translate(lx, ly);
+      ctx.rotate(rot);
+      ctx.fillStyle = color || "#2f9a45";
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rx, ry, 0, 0, 6.3);
+      ctx.fill();
+      ctx.restore();
+    }
+    function stem(hgt) {
+      ctx.strokeStyle = "#1c6b32";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(cx, ground);
+      ctx.lineTo(cx, ground - hgt);
+      ctx.stroke();
+    }
+    if (step === 0) {
+      ctx.fillStyle = "#f4e2b0";
+      ctx.strokeStyle = "#8a6230";
+      ctx.lineWidth = 1;
+      for (var s = 0; s < 3; s++) {
+        var seedX = sx + 8 + s * Math.max(8, (sw - 16) / 2);
+        ctx.beginPath();
+        ctx.ellipse(seedX, sy + sh * 0.45, 4, 2.6, 0.5, 0, 6.3);
+        ctx.fill();
+        ctx.stroke();
+      }
       return;
     }
-    var c = CROPS[plot.crop], step = plot.step || 0;
-    ctx.strokeStyle = "#246b32";
-    ctx.lineWidth = 2;
+    if (step === 1) {
+      stem(16);
+      leaf(cx - 6, ground - 14, 6, 3.5, -0.8, "#b6e86a");
+      leaf(cx + 6, ground - 13, 6, 3.5, 0.8, "#3aaa48");
+      return;
+    }
+    stem(40);
+    leaf(cx - 14, ground - 16, 12, 6, -0.5, "#1f8a3a");
+    leaf(cx + 14, ground - 18, 12, 6, 0.5, "#46b85a");
+    leaf(cx - 8, ground - 28, 10, 5, -0.2, "#167a32");
+    leaf(cx + 9, ground - 30, 10, 5, 0.3, "#67d36a");
+    leaf(cx, ground - 36, 8, 6, 0, "#2f9a45");
+    if (step < 3) return;
+    var food = c.part === "root" ? "#ff8a2a" : c.part === "tuber" ? "#e6c27a" : c.part === "leaf" ? "#8ed45a" : c.part === "fruit" ? "#e23d3d" : "#f2d48a";
+    ctx.fillStyle = food;
     ctx.beginPath();
-    ctx.moveTo(x + w / 2, y + h - 8);
-    ctx.lineTo(x + w / 2, y + h - 16 - step * 8);
+    if (c.part === "root") {
+      ctx.moveTo(cx - 5, ground - 2);
+      ctx.quadraticCurveTo(cx + 10, ground + 8, cx, ground + 18);
+      ctx.quadraticCurveTo(cx - 12, ground + 6, cx - 5, ground - 2);
+    } else if (c.part === "tuber") {
+      ctx.ellipse(cx, ground + 6, 9, 6, 0.2, 0, 6.3);
+    } else if (c.part === "leaf") {
+      ctx.ellipse(cx, ground - 30, 11, 8, 0, 0, 6.3);
+    } else {
+      ctx.arc(cx + 10, ground - 26, Math.max(9, Math.min(13, w * 0.2)), 0, 6.3);
+    }
+    ctx.fill();
+    ctx.strokeStyle = "rgba(80,30,10,.45)";
     ctx.stroke();
-    if (step >= 1) {
-      ctx.fillStyle = "#3cb054";
-      ctx.beginPath();
-      ctx.ellipse(x + w / 2 - 6, y + h - 20 - step * 6, 7, 4, -0.6, 0, 6.3);
-      ctx.ellipse(x + w / 2 + 6, y + h - 20 - step * 6, 7, 4, 0.6, 0, 6.3);
-      ctx.fill();
-    }
-    if (step >= 2) {
-      ctx.fillStyle = "#2f8f45";
-      ctx.beginPath();
-      ctx.ellipse(x + w / 2, y + 16, w * 0.28, 10, 0, 0, 6.3);
-      ctx.fill();
-    }
-    if (step >= 3) {
-      var food = c.part === "root" ? "#ff8a2a" : c.part === "tuber" ? "#e6c27a" : c.part === "leaf" ? "#7dce4a" : c.part === "fruit" ? "#e23d3d" : "#f2d48a";
-      ctx.fillStyle = food;
-      ctx.beginPath();
-      ctx.arc(x + w / 2, y + h * 0.42, Math.min(10, w * 0.22), 0, 6.3);
-      ctx.fill();
-    }
   }
   function drawBoard(t) {
     layout();
@@ -424,6 +479,7 @@
     if (ui.mode === "glide" && ui.phase === "play") drawGlide(t);
     else if (ui.mode === "hunt" && ui.phase === "play") drawHunt(t);
     else if (ui.mode === "fair" && ui.phase === "play") drawFair(t);
+    else if (ui.mode === "flight" && !ui.flightLanded) drawRoute(t);
     else if (ui.mode === "gallery") drawGallery(t);
     else {
       drawCover(imgs.bg);
@@ -564,35 +620,143 @@
     save(st);
   }
 
+  function ridge(shift, base, color, jag, step) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(-40, viewH);
+    for (var x = -40; x <= viewW + 40; x += step) {
+      var n = Math.sin((x + shift) / 80) * jag + Math.sin((x + shift) / 31) * jag * 0.55;
+      ctx.lineTo(x, base + n);
+    }
+    ctx.lineTo(viewW + 40, viewH);
+    ctx.fill();
+  }
+  function puff(x, y, s) {
+    ctx.fillStyle = "rgba(255, 246, 236, .92)";
+    ctx.beginPath();
+    ctx.arc(x, y, 18 * s, 0, 6.3);
+    ctx.arc(x + 16 * s, y + 3, 14 * s, 0, 6.3);
+    ctx.arc(x - 14 * s, y + 5, 12 * s, 0, 6.3);
+    ctx.arc(x + 4 * s, y - 12 * s, 11 * s, 0, 6.3);
+    ctx.fill();
+  }
+  function seedGlide(g) {
+    if (g.seeded) return;
+    g.seeded = true;
+    g.x = viewW * 0.3;
+    g.y = viewH * 0.3;
+    g.clouds = [
+      { x: viewW * 0.18, y: viewH * 0.12, s: 0.7 },
+      { x: viewW * 0.62, y: viewH * 0.18, s: 1.05 },
+      { x: viewW * 1.05, y: viewH * 0.1, s: 0.8 }
+    ];
+    g.rings = [
+      { x: viewW * 0.5, y: viewH * 0.3, got: false },
+      { x: viewW * 0.72, y: viewH * 0.46, got: false },
+      { x: viewW * 0.9, y: viewH * 0.24, got: false }
+    ];
+    g.obstacles = [
+      { x: viewW * 0.6, y: viewH * 0.74, s: 58, kind: "tree" },
+      { x: viewW * 0.78, y: viewH * 0.4, s: 40, kind: "arch" },
+      { x: viewW * 0.96, y: viewH * 0.78, s: 72, kind: "tree" }
+    ];
+  }
+  function drawTree(x, y, s) {
+    ctx.fillStyle = "#6b4224";
+    ctx.fillRect(x - 4, y - s * 0.35, 8, s * 0.45);
+    ctx.fillStyle = "#1c6b34";
+    ctx.beginPath();
+    ctx.moveTo(x, y - s);
+    ctx.lineTo(x + s * 0.55, y - s * 0.15);
+    ctx.lineTo(x - s * 0.55, y - s * 0.15);
+    ctx.fill();
+    ctx.fillStyle = "#2f8a48";
+    ctx.beginPath();
+    ctx.arc(x, y - s * 0.55, s * 0.28, 0, 6.3);
+    ctx.fill();
+  }
+  function drawArch(x, y) {
+    ctx.strokeStyle = "#d7c4a2";
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(x - 26, y + 20);
+    ctx.lineTo(x - 26, y - 10);
+    ctx.quadraticCurveTo(x, y - 48, x + 26, y - 10);
+    ctx.lineTo(x + 26, y + 20);
+    ctx.stroke();
+    ctx.strokeStyle = "#ffcf6b";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(x, y - 8, 16, 0, 6.3);
+    ctx.stroke();
+  }
   function drawGlide(t) {
     var g = ui.glide;
+    seedGlide(g);
     var sky = ctx.createLinearGradient(0, 0, 0, viewH);
-    sky.addColorStop(0, "#241848");
-    sky.addColorStop(1, "#e39a55");
+    sky.addColorStop(0, "#12183f");
+    sky.addColorStop(0.42, "#c45b78");
+    sky.addColorStop(1, "#f0b15a");
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, viewW, viewH);
-    ctx.fillStyle = "#2f6a3e";
-    var shift = ((t / 30) % viewW);
+    ctx.fillStyle = "rgba(255,255,255,.85)";
+    for (var i = 0; i < 18; i++) {
+      var sx = (i * 97 + (g.far || 0) * 0.2) % viewW;
+      var sy = 12 + (i * 53) % Math.floor(viewH * 0.28);
+      ctx.fillRect(sx, sy, i % 4 === 0 ? 2 : 1.5, i % 4 === 0 ? 2 : 1.5);
+    }
+    var sun = ctx.createRadialGradient(viewW * 0.78, viewH * 0.2, 6, viewW * 0.78, viewH * 0.2, 90);
+    sun.addColorStop(0, "rgba(255,244,210,.95)");
+    sun.addColorStop(1, "rgba(255,244,210,0)");
+    ctx.fillStyle = sun;
     ctx.beginPath();
-    ctx.moveTo(-shift, viewH * 0.72);
-    for (var x = -shift; x < viewW + 40; x += 40) ctx.lineTo(x, viewH * 0.72 - Math.sin(x / 50) * 18);
-    ctx.lineTo(viewW, viewH); ctx.lineTo(0, viewH); ctx.fill();
-    ctx.fillStyle = "#1f4d2c";
-    ctx.fillRect(0, viewH * 0.82, viewW, viewH);
-    g.clouds.forEach(function (c) {
-      ctx.fillStyle = "rgba(255,255,255,.55)";
-      ctx.beginPath(); ctx.ellipse(c.x, c.y, 34, 14, 0, 0, 6.3); ctx.fill();
+    ctx.arc(viewW * 0.78, viewH * 0.2, 90, 0, 6.3);
+    ctx.fill();
+    g.clouds.forEach(function (c) { puff(c.x, c.y, c.s || 1); });
+    ridge(g.far || 0, viewH * 0.48, "#6d5a86", 34, 18);
+    ridge((g.mid || 0) * 0.6, viewH * 0.6, "#3d6d8a", 22, 16);
+    ridge(g.near || 0, viewH * 0.72, "#217a3c", 16, 14);
+    for (var tx = -40 - ((g.near || 0) % 70); tx < viewW + 40; tx += 54) drawTree(tx, viewH * 0.66, 42);
+    ctx.fillStyle = "#166332";
+    ctx.fillRect(0, viewH * 0.8, viewW, viewH * 0.2);
+    for (var gx = -10 - ((g.near || 0) % 18); gx < viewW + 10; gx += 14) {
+      ctx.strokeStyle = gx % 28 === 0 ? "#d4e27a" : "#0e4a24";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(gx, viewH * 0.84);
+      ctx.quadraticCurveTo(gx + 4, viewH * 0.78, gx + 2, viewH * 0.74);
+      ctx.stroke();
+    }
+    ctx.fillStyle = "#f2d24a";
+    for (var fx = 20; fx < viewW; fx += 46) {
+      ctx.beginPath();
+      ctx.arc(fx, viewH * 0.9, 3, 0, 6.3);
+      ctx.fill();
+    }
+    g.obstacles.forEach(function (o) {
+      if (o.kind === "tree") drawTree(o.x, o.y, o.s);
+      else drawArch(o.x, o.y);
     });
     g.rings.forEach(function (r) {
-      ctx.strokeStyle = r.got ? "rgba(255,255,255,.3)" : "#ffcf6b";
+      if (r.got) return;
+      ctx.strokeStyle = "#ffcf6b";
       ctx.lineWidth = 4;
       ctx.beginPath(); ctx.arc(r.x, r.y, 18, 0, 6.3); ctx.stroke();
+      ctx.fillStyle = "rgba(255, 207, 107, .35)";
+      ctx.beginPath(); ctx.arc(r.x, r.y, 10, 0, 6.3); ctx.fill();
     });
-    if (g.dragon) drawCreature(g.dragon, g.x, g.y, 110, t, false);
-    ctx.fillStyle = "#ffcf6b";
-    ctx.font = "700 20px Cinzel, serif";
+    if (g.dragon) {
+      ctx.fillStyle = "rgba(0,0,0,.28)";
+      ctx.beginPath();
+      ctx.ellipse(g.x, viewH * 0.9, 28, 7, 0, 0, 6.3);
+      ctx.fill();
+      var tilt = -0.85 + (g.hold ? -0.25 : 0) + Math.max(-0.25, Math.min(0.45, g.vy * 0.8));
+      drawCreature(g.dragon, g.x, g.y, 118, t, false, tilt);
+    }
+    ctx.fillStyle = "#fff8e8";
+    ctx.font = "700 22px Cinzel, serif";
     ctx.textAlign = "left";
-    ctx.fillText("Lights " + g.score, 16, 32);
+    ctx.fillText("Lights " + g.score, 16, 36);
   }
   function stepGlide(t) {
     var g = ui.glide;
@@ -600,11 +764,11 @@
     if (!g.t0) g.t0 = t;
     var dt = Math.min(32, t - (g.last || t));
     g.last = t;
-    if (g.hold) g.vy -= 0.002 * dt;
-    g.vy += 0.0011 * dt;
-    g.vy *= 0.985;
+    if (g.hold) g.vy -= 0.00045 * dt;
+    g.vy += 0.00016 * dt;
+    g.vy *= 0.992;
     g.y += g.vy * dt;
-    if (g.y < 40) { g.y = 40; g.vy = 0; }
+    if (g.y < 90) { g.y = 90; g.vy = 0; }
     if (g.y > viewH - 50) { g.y = viewH - 50; g.vy = 0; }
     g.rings.forEach(function (r) {
       r.x -= 0.16 * dt;
@@ -612,13 +776,21 @@
         r.got = true; g.score++; burst(r.x, r.y, "#ffcf6b", 10); floatText(r.x, r.y, "+1"); tone(740, 0, 0.08, "sine", 0.03);
       }
     });
-    g.clouds.forEach(function (c) { c.x -= 0.08 * dt; if (Math.abs(c.x - g.x) < 36 && Math.abs(c.y - g.y) < 24) g.vy *= 0.45; });
+    g.far += 0.04 * dt; g.mid += 0.09 * dt; g.near += 0.16 * dt;
+    g.clouds.forEach(function (c) { c.x -= 0.05 * dt; });
+    g.obstacles.forEach(function (o) {
+      o.x -= 0.16 * dt;
+      if (Math.abs(o.x - g.x) < 28 && Math.abs(o.y - g.y) < 36) g.vy *= 0.4;
+    });
     g.rings = g.rings.filter(function (r) { return r.x > -40; });
-    g.clouds = g.clouds.filter(function (c) { return c.x > -50; });
-    if (t - g.spawn > 650) {
+    g.clouds = g.clouds.filter(function (c) { return c.x > -60; });
+    g.obstacles = g.obstacles.filter(function (o) { return o.x > -80; });
+    if (t - g.spawn > 700) {
       g.spawn = t;
-      g.rings.push({ x: viewW + 24, y: 50 + Math.random() * (viewH - 120), got: false });
-      g.clouds.push({ x: viewW + 30, y: 40 + Math.random() * (viewH * 0.6) });
+      var lane = 70 + Math.random() * (viewH * 0.55);
+      g.rings.push({ x: viewW + 30, y: lane, got: false });
+      g.clouds.push({ x: viewW + 10, y: 30 + Math.random() * (viewH * 0.35) });
+      g.obstacles.push({ x: viewW + 80, y: viewH * 0.62 + Math.random() * 40, s: 36 + Math.random() * 20, kind: Math.random() < 0.65 ? "tree" : "arch" });
     }
     if (t - g.t0 > 16000) endGlide();
   }
@@ -629,13 +801,22 @@
     if (ui.glide.score > st.best.glide) st.best.glide = ui.glide.score;
     var gained = earn(got);
     ui.phase = "end";
-    ui.note = "You flew the whole way and earned " + gained + " stars. Clouds only slow you. Stars now: " + st.stars + ".";
+    ui.note = "You flew the whole way and earned " + gained + (gained === 1 ? " star." : " stars.") + " Clouds only slow you. Stars now: " + st.stars + ".";
     chime();
     save(st);
     paint();
   }
   function drawHunt(t) {
     drawCover(imgs.bg);
+    ctx.fillStyle = "rgba(16, 10, 28, .55)";
+    round(viewW / 2 - 90, 10, 180, 56, 14);
+    ctx.fill();
+    ctx.fillStyle = "#fff8e8";
+    ctx.font = "700 24px Cinzel, serif";
+    ctx.textAlign = "center";
+    ctx.fillText("Egg garden", viewW / 2, 34);
+    ctx.font = "600 15px Lexend, sans-serif";
+    ctx.fillText((ui.hunt ? ui.hunt.found : 0) + " of 5", viewW / 2, 54);
     ui.hunt.spots.forEach(function (s) {
       if (s.found) return;
       var x = s.x * viewW, y = s.y * viewH;
@@ -650,12 +831,71 @@
   }
   function drawFair(t) {
     drawCover(imgs.bg);
-    var d = selectedDragon();
-    if (d) drawCreature(d, viewW / 2, viewH * 0.55, Math.min(viewW, viewH) * 0.55, t, false);
-    ctx.fillStyle = "rgba(255,207,107,.25)";
+    ctx.fillStyle = "rgba(28, 12, 40, .45)";
+    ctx.fillRect(0, 0, viewW, viewH);
+    var colors = ["#e23d3d", "#ffcf6b", "#3aa0d8", "#7dce45", "#e23d3d", "#ffcf6b"];
+    ctx.strokeStyle = "#5a3318";
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.ellipse(viewW / 2, viewH * 0.78, 70, 16, 0, 0, 6.3);
+    ctx.moveTo(16, 58);
+    ctx.lineTo(viewW - 16, 58);
+    ctx.stroke();
+    for (var i = 0; i < 6; i++) {
+      var bx = 28 + i * ((viewW - 56) / 5);
+      ctx.fillStyle = colors[i];
+      ctx.beginPath();
+      ctx.moveTo(bx - 12, 58);
+      ctx.lineTo(bx + 12, 58);
+      ctx.lineTo(bx, 78);
+      ctx.fill();
+    }
+    ctx.fillStyle = "#6b3a22";
+    round(viewW * 0.14, viewH * 0.62, viewW * 0.72, viewH * 0.16, 10);
     ctx.fill();
+    ctx.fillStyle = "#a56b3c";
+    ctx.fillRect(viewW * 0.14, viewH * 0.62, viewW * 0.72, 8);
+    ctx.strokeStyle = "rgba(60,30,12,.45)";
+    ctx.lineWidth = 2;
+    for (var plank = 1; plank <= 3; plank++) {
+      var py = viewH * 0.62 + plank * (viewH * 0.16) / 4;
+      ctx.beginPath();
+      ctx.moveTo(viewW * 0.16, py);
+      ctx.lineTo(viewW * 0.84, py);
+      ctx.stroke();
+    }
+    ctx.fillStyle = "#e23d3d";
+    ctx.fillRect(viewW * 0.7, viewH * 0.5, 8, viewH * 0.14);
+    ctx.beginPath();
+    ctx.moveTo(viewW * 0.7, viewH * 0.5);
+    ctx.lineTo(viewW * 0.84, viewH * 0.54);
+    ctx.lineTo(viewW * 0.7, viewH * 0.58);
+    ctx.fill();
+    for (var n = 0; n < 5; n++) {
+      var lx = viewW * (0.18 + n * 0.16);
+      ctx.strokeStyle = "#4a2a14";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(lx, viewH * 0.62);
+      ctx.lineTo(lx, viewH * 0.22);
+      ctx.stroke();
+      ctx.fillStyle = "#ffcf6b";
+      ctx.beginPath();
+      ctx.arc(lx, viewH * 0.24 + Math.sin(t / 280 + n) * 3, 9, 0, 6.3);
+      ctx.fill();
+      ctx.fillStyle = "rgba(255, 207, 107, .28)";
+      ctx.beginPath();
+      ctx.arc(lx, viewH * 0.24, 18, 0, 6.3);
+      ctx.fill();
+    }
+    var d = selectedDragon();
+    if (d) drawCreature(d, viewW / 2, viewH * 0.58, Math.min(viewW, viewH) * 0.42, t, false);
+    ctx.fillStyle = "rgba(16, 10, 28, .55)";
+    round(viewW / 2 - 100, 8, 200, 36, 12);
+    ctx.fill();
+    ctx.fillStyle = "#fff6df";
+    ctx.font = "700 24px Cinzel, serif";
+    ctx.textAlign = "center";
+    ctx.fillText("Harvest fair", viewW / 2, 33);
   }
   function drawGallery(t) {
     drawCover(imgs.bg);
@@ -686,12 +926,13 @@
     if (ui.mode === "flight") return flightHtml(head);
     if (ui.mode === "gallery") return head + '<div class="farm-stage"><canvas aria-label="Dragon kinds"></canvas></div><p class="farm-note">Six kinds, from baby to elder. Eggs are the start. Elders wear a brighter trim. Rarity is a glow, not a rank against anyone.</p><button class="farm-btn" data-farm="home">Back to the meadow</button>';
     if (ui.phase === "start") return head + card(ui.mode) + '<button class="farm-btn gold" data-farm="begin">Begin</button><button class="farm-btn" data-farm="home">Not now</button>';
-    if (ui.phase === "end") return head + '<article class="farm-card"><p class="farm-kicker">Stars earned</p><h3>' + esc(ui.note) + '</h3><p>Stars only go up. You have ' + st.stars + ' farm stars.</p><button class="farm-btn gold" data-farm="again">Play again</button><button class="farm-btn" data-farm="home">Back to the meadow</button></article>';
+    if (ui.phase === "end") return head + '<article class="farm-card"><p class="farm-kicker">' + esc(title()) + " · Stars earned</p><h3>" + esc(ui.note) + '</h3><p>Stars only go up. You have ' + st.stars + ' farm stars.</p><button class="farm-btn gold" data-farm="again">Play again</button><button class="farm-btn" data-farm="home">Back to the meadow</button></article>';
+    if (ui.mode === "glide" && ui.phase === "play") return head + '<div class="farm-stage"><canvas aria-label="Lantern glide"></canvas></div><p class="farm-note">Hold to rise. Let go to glide. Each light you pass adds a star at the end.</p><div class="farm-row"><button class="farm-btn gold" id="farm-rise" data-farm="rise">Hold to rise</button><button class="farm-btn" data-farm="glide-end">Land softly</button></div>';
+    if (ui.mode === "hunt" && ui.phase === "play") return head + '<div class="farm-stage"><canvas aria-label="Egg garden"></canvas></div><p class="farm-note">Tap each glowing egg in the meadow. ' + (ui.hunt ? ui.hunt.found : 0) + ' of 5 found. Take your time.</p>';
+    if (ui.mode === "fair" && ui.phase === "play") return head + '<div class="farm-stage"><canvas aria-label="Harvest fair"></canvas></div><p class="farm-note">One dragon, one ribbon. This is a celebration, not a race.</p><div class="farm-row"><button class="farm-btn gold" data-farm="ribbon">Give the ribbon</button></div>';
     var garden = ui.panel === "garden" ? '<div class="farm-sheet"><p class="farm-kicker">Plant a seed</p><p>' + esc(LESSON) + '</p><div class="farm-row">' + Object.keys(CROPS).filter(function (id) { return st.found[id]; }).map(function (id) { return '<button class="farm-btn" data-farm="plant:' + id + '">' + esc(CROPS[id].name) + " " + (st.seeds[id] || 0) + "</button>"; }).join("") + "</div></div>" : "";
     var fly = ui.panel === "fly" ? '<div class="farm-sheet"><p class="farm-kicker">Seed flights</p><p>Each landing shows the land and pockets seeds. Seeds are never taken back.</p><div class="farm-row">' + PLACES.map(function (p) { return '<button class="farm-btn" data-farm="place:' + p.id + '">' + esc(p.name) + "</button>"; }).join("") + "</div></div>" : "";
     var play = ui.panel === "play" ? '<div class="farm-sheet"><p class="farm-kicker">Play</p><div class="farm-row"><button class="farm-btn gold" data-farm="glide">Lantern glide</button><button class="farm-btn gold" data-farm="hunt">Egg garden</button><button class="farm-btn gold" data-farm="fair">Harvest fair</button></div></div>' : "";
-    var rise = ui.mode === "glide" && ui.phase === "play" ? '<button class="farm-btn gold" id="farm-rise" data-farm="rise">Hold to rise</button><button class="farm-btn" data-farm="glide-end">Land softly</button>' : "";
-    var fair = ui.mode === "fair" && ui.phase === "play" ? '<button class="farm-btn gold" data-farm="ribbon">Give the ribbon</button><button class="farm-btn" data-farm="bed">Add a bed (' + st.upgrades.beds + "/8)</button>" : "";
     return head
       + '<div class="farm-stage"><canvas aria-label="Dragon farm meadow"></canvas></div>'
       + '<p class="farm-note">' + esc(ui.note || "Drag a dragon onto a match. Water the soil. Everyone stays.") + "</p>"
@@ -705,7 +946,6 @@
       + '<button class="farm-btn" data-farm="panel:fly">Fly</button>'
       + '<button class="farm-btn" data-farm="panel:play">Play</button>'
       + '<button class="farm-btn" data-farm="gallery">Kinds</button>'
-      + rise + fair
       + "</div>" + garden + fly + play;
   }
   function title() {
@@ -725,15 +965,116 @@
     }[mode];
     return '<article class="farm-card"><p class="farm-kicker">Ready</p><h3>' + copy[0] + "</h3><p>" + copy[1] + "</p></article>";
   }
+  function drawGlobe(cx, cy, rad) {
+    var globe = ctx.createRadialGradient(cx - rad * 0.35, cy - rad * 0.35, rad * 0.15, cx, cy, rad);
+    globe.addColorStop(0, "#d7f1ff");
+    globe.addColorStop(0.45, "#3e9a5c");
+    globe.addColorStop(1, "#174e86");
+    ctx.fillStyle = globe;
+    ctx.beginPath();
+    ctx.arc(cx, cy, rad, 0, 6.3);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,.8)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rad * 0.95, rad * 0.28, 0, 0, 6.3);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rad * 0.32, rad * 0.95, 0, 0, 6.3);
+    ctx.stroke();
+  }
+  function peak(x, y, s) {
+    ctx.beginPath();
+    ctx.moveTo(x, y - s);
+    ctx.lineTo(x + s * 0.7, y + s * 0.35);
+    ctx.lineTo(x - s * 0.7, y + s * 0.35);
+    ctx.fill();
+  }
+  function drawRoute(t) {
+    var sky = ctx.createLinearGradient(0, 0, 0, viewH);
+    sky.addColorStop(0, "#142046");
+    sky.addColorStop(0.55, "#c46a45");
+    sky.addColorStop(1, "#e7b56a");
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, viewW, viewH);
+    var mx = 12, my = 12, mw = viewW - 24, mh = viewH - 24;
+    ctx.fillStyle = "#1a5278";
+    round(mx, my, mw, mh, 16);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,.18)";
+    ctx.lineWidth = 2;
+    for (var i = 0; i < 5; i++) {
+      ctx.beginPath();
+      ctx.arc(mx + mw * 0.28, my + mh * 0.72, 24 + i * 22, 0.4, 2.4);
+      ctx.stroke();
+    }
+    ctx.fillStyle = "#2f8a48";
+    ctx.beginPath();
+    ctx.moveTo(mx + mw * 0.46, my + mh * 0.1);
+    ctx.bezierCurveTo(mx + mw * 0.72, my + mh * 0.08, mx + mw * 0.8, my + mh * 0.36, mx + mw * 0.7, my + mh * 0.55);
+    ctx.bezierCurveTo(mx + mw * 0.84, my + mh * 0.78, mx + mw * 0.52, my + mh * 0.94, mx + mw * 0.38, my + mh * 0.76);
+    ctx.bezierCurveTo(mx + mw * 0.2, my + mh * 0.66, mx + mw * 0.16, my + mh * 0.34, mx + mw * 0.3, my + mh * 0.18);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#e7eef5";
+    peak(mx + mw * 0.48, my + mh * 0.28, 16);
+    peak(mx + mw * 0.58, my + mh * 0.22, 22);
+    peak(mx + mw * 0.67, my + mh * 0.3, 14);
+    ctx.fillStyle = "#3aa0d8";
+    ctx.beginPath();
+    ctx.ellipse(mx + mw * 0.5, my + mh * 0.46, mw * 0.07, mh * 0.045, -0.4, 0, 6.3);
+    ctx.fill();
+    ctx.strokeStyle = "#7ec8ea";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(mx + mw * 0.52, my + mh * 0.22);
+    ctx.bezierCurveTo(mx + mw * 0.48, my + mh * 0.4, mx + mw * 0.58, my + mh * 0.5, mx + mw * 0.46, my + mh * 0.7);
+    ctx.stroke();
+    ctx.strokeStyle = "#1d5c30";
+    ctx.lineWidth = 2;
+    for (var r = 0; r < 4; r++) {
+      ctx.beginPath();
+      ctx.ellipse(mx + mw * 0.44, my + mh * 0.6 + r * 7, 22 - r * 2, 4, 0.1, 0, 3.14);
+      ctx.stroke();
+    }
+    drawGlobe(mx + 42, my + 48, 28);
+    var land = ui.flightPlace && imgs["land:" + ui.flightPlace.id];
+    var dx = mx + mw * 0.5, dy = my + mh * 0.4, dw = mw * 0.42, dh = mh * 0.34;
+    ctx.save();
+    round(dx, dy, dw, dh, 12);
+    ctx.clip();
+    if (land) ctx.drawImage(land, dx, dy, dw, dh);
+    else { ctx.fillStyle = "#2f6a40"; ctx.fillRect(dx, dy, dw, dh); }
+    ctx.restore();
+    ctx.strokeStyle = "#ffcf6b";
+    ctx.lineWidth = 3;
+    round(dx, dy, dw, dh, 12);
+    ctx.stroke();
+    ctx.setLineDash([6, 7]);
+    ctx.beginPath();
+    ctx.moveTo(mx + mw * 0.2, my + mh * 0.74);
+    ctx.quadraticCurveTo(mx + mw * 0.36, my + mh * 0.28, dx + 8, dy + dh * 0.45);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    var along = reduced() ? 0.62 : (Math.sin(t / 700) * 0.5 + 0.5);
+    var fx = (mx + mw * 0.2) * (1 - along) + (dx + 8) * along;
+    var fy = (my + mh * 0.74) * (1 - along) + (dy + dh * 0.45) * along - Math.sin(along * 3.14) * 20;
+    ctx.fillStyle = "rgba(0,0,0,.28)";
+    ctx.beginPath();
+    ctx.ellipse(fx + 6, fy + 28, 16, 5, 0, 0, 6.3);
+    ctx.fill();
+    drawCreature({ species: "cinder", stage: 3, rarity: 2, phase: 1, id: "flyer" }, fx, fy, 84, t, false, -0.55);
+    ctx.fillStyle = "#fff8e8";
+    ctx.font = "700 22px Cinzel, serif";
+    ctx.textAlign = "left";
+    if (ui.flightPlace) ctx.fillText(ui.flightPlace.name, mx + 78, my + 32);
+  }
   function flightHtml(head) {
     var p = ui.flightPlace;
     var img = imgs["land:" + p.id];
-    return head + '<div class="farm-sky"><i style="width:70px;top:24px;left:10%"></i><i style="width:90px;top:64px;left:55%"></i>'
-      + (sprite({ species: "cinder", stage: 3 }) ? '<img class="farm-pop" alt="" src="farm/art/cinder-3.png">' : "")
-      + "</div>"
-      + (ui.flightLanded
-        ? '<article class="farm-card">' + (img ? '<img alt="The lands of ' + esc(p.name) + '" src="farm/art/land-' + p.id + '.jpg">' : "") + '<p class="farm-kicker">Seed card</p><h3>' + esc(p.name) + "</h3><p>" + esc(p.fact) + '</p><button class="farm-btn gold" data-farm="pocket">Pocket the seeds</button></article>'
-        : '<p class="farm-note">Wings up. The meadow is safe while you fly.</p><button class="farm-btn gold" data-farm="arrive">Land in ' + esc(p.name) + "</button>");
+    if (!ui.flightLanded) return head + '<div class="farm-stage"><canvas aria-label="Flight to ' + esc(p.name) + '"></canvas></div><p class="farm-note">A globe marks the way. The land ahead is ' + esc(p.name) + '.</p><button class="farm-btn gold" data-farm="arrive">Land in ' + esc(p.name) + "</button>";
+    return head + '<article class="farm-card">' + (img ? '<img alt="The lands of ' + esc(p.name) + '" src="farm/art/land-' + p.id + '.jpg">' : "") + '<p class="farm-kicker">Seed card</p><h3>' + esc(p.name) + "</h3><p>" + esc(p.fact) + '</p><button class="farm-btn gold" data-farm="pocket">Pocket the seeds</button></article>';
   }
 
   function bind() {
@@ -818,13 +1159,12 @@
     ui.flightLanded = !!reduced();
     ui.panel = "";
     paint();
-    if (!reduced()) setTimeout(function () { if (ui && ui.mode === "flight" && root) { ui.flightLanded = true; paint(); } }, 1600);
   }
   function beginPlay() {
     ui.phase = "play";
     if (ui.mode === "glide") {
       var d = selectedDragon() || st.dragons[0];
-      ui.glide = { x: 90, y: 160, vy: 0, hold: false, score: 0, rings: [], clouds: [], spawn: 0, t0: 0, last: 0, done: false, dragon: d };
+      ui.glide = { x: 110, y: 150, vy: 0, hold: false, score: 0, rings: [], clouds: [], obstacles: [], far: 0, mid: 0, near: 0, spawn: 0, t0: 0, last: 0, done: false, dragon: d };
       ui.note = "Hold to rise. Let go to glide.";
     } else if (ui.mode === "hunt") {
       var spots = [];
@@ -832,6 +1172,8 @@
       ui.hunt = { spots: spots, found: 0, first: !(st.best.hunt >= 5) };
       ui.note = "Five eggs are glowing. Tap them. A hint appears if you wait.";
       setTimeout(function () { if (ui && ui.hunt) { var left = ui.hunt.spots.filter(function (s) { return !s.found; })[0]; if (left) left.hint = true; paint(); } }, 7000);
+    } else if (ui.mode === "fair") {
+      ui.note = "One dragon stands in the lantern light. The ribbon celebrates that dragon alone.";
     }
     paint();
   }
