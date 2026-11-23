@@ -48,6 +48,7 @@
   ];
 
   var root, raf = 0, st, ui, cv, ctx, viewW = 360, viewH = 480, board = [], plotsBox = [], drag = null, imgs = {}, ready = false;
+  var quality = "high", frameTimes = [], lastStamp = 0, slowWindows = 0, fastWindows = 0;
   var pops = [], sparks = [];
   var audioCtx = null, musicTimer = 0, soundOn = true;
 
@@ -273,7 +274,11 @@
     st.dragons.push(baby);
     ui.selected = baby.id;
     var cell = board.filter(function (b) { return b.i === baby.slot; })[0];
-    burst(cell ? cell.x + cell.s / 2 : viewW / 2, cell ? cell.y + cell.s / 2 : viewH / 2, "#ffcf6b", 28);
+    var sx = cell ? cell.x + cell.s / 2 : viewW / 2, sy = cell ? cell.y + cell.s / 2 : viewH / 2;
+    burst(sx, sy, "#ffcf6b", 28);
+    if (window.FarmFX) FarmFX.burst(sx, sy, 0xfff1b0, 32);
+    ui.swirl = { x: sx, y: sy, t0: performance.now() };
+    baby.boing = performance.now();
     floatText(viewW / 2, viewH * 0.24, "+1 star");
     earn(1);
     chime();
@@ -299,31 +304,53 @@
     else { dw = viewW; dh = dw / ir; dx = 0; dy = (viewH - dh) / 2; }
     ctx.drawImage(img, dx, dy, dw, dh);
   }
+  function skyFromClock() {
+    var h = new Date().getHours();
+    if (h >= 19 || h < 5) return "night";
+    if (h < 10) return "morning";
+    return "golden";
+  }
   function drawCreature(d, x, y, size, t, ghost, tilt) {
     var img = sprite(d);
     ctx.save();
     ctx.translate(x, y);
-    var flap = reduced() ? 0 : Math.sin(t / 180 + (d.phase || 0)) * (tilt ? 0.18 : 0.06);
-    ctx.rotate((tilt || 0) + flap);
-    if (!reduced()) ctx.scale(1, 1 + Math.sin(t / 520 + (d.phase || 0)) * 0.035);
-    if (ghost) ctx.globalAlpha = 0.85;
-    var glow = ["transparent", "rgba(255,255,255,.35)", "rgba(180,220,255,.55)", "rgba(255,207,107,.75)"][d.rarity] || "transparent";
-    if (d.rarity) {
+    var phase = d.phase || 0;
+    var breathe = reduced() ? 0 : Math.sin(t / 480 + phase) * 0.04;
+    var flutter = reduced() || !d.stage ? 0 : Math.sin(t / 110 + phase) * 0.07;
+    var sway = reduced() ? 0 : Math.sin(t / 760 + phase) * 0.06;
+    var hop = 0;
+    if (!reduced() && d.stage && Math.sin(t / 980 + phase) > 0.985) hop = -size * 0.07;
+    if (ui && ui.hatch && ui.hatch.id === d.id) sway += Math.sin(t / 18) * 0.14;
+    if (d.boing && t - d.boing < 320) breathe += Math.sin((t - d.boing) / 40) * 0.07;
+    ctx.translate(0, hop);
+    ctx.rotate((tilt || 0) + sway + flutter * 0.35);
+    ctx.scale((ghost ? 1.14 : 1) + flutter * 0.35, 1 + breathe - flutter * 0.15);
+    if (ghost) ctx.globalAlpha = 0.94;
+    var night = ui && ui.sky === "night" && d.stage;
+    if (night && quality !== "low") {
+      ctx.fillStyle = "rgba(255, 214, 120, .4)";
+      ctx.beginPath();
+      ctx.ellipse(0, size * 0.08, size * 0.32, size * 0.14, 0, 0, 6.3);
+      ctx.fill();
+      ctx.shadowColor = "rgba(255, 220, 140, .95)";
+      ctx.shadowBlur = quality === "high" ? 16 : 0;
+    } else if (d.rarity && quality === "high") {
+      var glow = ["transparent", "rgba(255,255,255,.4)", "rgba(180,220,255,.65)", "rgba(255,207,107,.85)"][d.rarity] || "transparent";
       ctx.shadowColor = glow;
-      ctx.shadowBlur = 12 + d.rarity * 4;
+      ctx.shadowBlur = 12 + d.rarity * 6;
     }
     if (img) {
       var sc = (size * 0.92) / Math.max(img.width, img.height);
       ctx.drawImage(img, -img.width * sc / 2, -img.height * sc / 2, img.width * sc, img.height * sc);
-      if (!reduced() && Math.floor(t / 140) % 26 === Math.floor(d.phase) % 26 && d.stage) {
+      if (!reduced() && Math.floor(t / 160 + phase) % 28 === 0 && d.stage) {
         ctx.shadowBlur = 0;
-        ctx.fillStyle = "rgba(80,40,30,.45)";
-        ctx.fillRect(-size * 0.05, -size * 0.18, size * 0.16, size * 0.035);
+        ctx.fillStyle = "rgba(40,24,16,.55)";
+        ctx.fillRect(-size * 0.06, -size * 0.2, size * 0.14, size * 0.028);
       }
     }
     ctx.restore();
   }
-  function drawCrop(plot, box) {
+  function drawCrop(plot, box, t) {
     var step = plot ? Math.max(0, Math.min(3, plot.step || 0)) : 0;
     var painted = imgs["crop" + step];
     if (painted) {
@@ -333,7 +360,12 @@
       var cap = viewH * 0.46;
       if (h > cap) { h = cap; w = h * painted.width / painted.height; }
       if (w > col) { w = col; h = w * painted.height / painted.width; }
-      ctx.drawImage(painted, box.x + (box.w - w) / 2, viewH - h + 2, w, h);
+      var sway = reduced() || quality === "low" ? 0 : Math.sin(t / 540 + box.i) * 0.035;
+      ctx.save();
+      ctx.translate(box.x + box.w / 2, viewH - 2);
+      ctx.rotate(sway);
+      ctx.drawImage(painted, -w / 2, -h, w, h);
+      ctx.restore();
       return;
     }
     var x = box.x, y = box.y, w = box.w, h = box.h;
@@ -436,10 +468,17 @@
   function drawBoard(t) {
     layout();
     board.forEach(function (b) {
-      ctx.fillStyle = "rgba(255,255,255,.14)";
+      var d = dragonAt(b.i);
+      var hint = d && kindCount(d) >= 3 && quality !== "low" && !reduced();
+      ctx.fillStyle = hint ? "rgba(255,207,107," + (0.16 + Math.sin(t / 180 + b.i) * 0.1) + ")" : "rgba(255,255,255,.14)";
       round(b.x, b.y, b.s, b.s, 12);
       ctx.fill();
-      var d = dragonAt(b.i);
+      if (hint) {
+        ctx.strokeStyle = "#ffcf6b";
+        ctx.lineWidth = 2;
+        round(b.x + 3, b.y + 3, b.s - 6, b.s - 6, 10);
+        ctx.stroke();
+      }
       if (d && (!drag || drag.id !== d.id)) drawCreature(d, b.x + b.s / 2, b.y + b.s / 2 + 4, b.s, t, false);
       if (d && ui.selected === d.id) {
         ctx.strokeStyle = "#ffcf6b";
@@ -448,7 +487,7 @@
         ctx.stroke();
       }
     });
-    plotsBox.forEach(function (b) { drawCrop(st.plots[b.i], b); });
+    plotsBox.forEach(function (b) { drawCrop(st.plots[b.i], b, t); });
   }
   function drawSparkles() {
     sparks.forEach(function (p) {
@@ -472,16 +511,134 @@
     ctx.globalAlpha = 1;
     pops = pops.filter(function (p) { return p.life > 0; });
   }
+  function noteFrame(t) {
+    if (lastStamp) {
+      var dt = t - lastStamp;
+      if (dt > 0 && dt < 48) {
+        frameTimes.push(dt);
+        if (frameTimes.length > 90) frameTimes.shift();
+        if (frameTimes.length >= 60) {
+          var sorted = frameTimes.slice().sort(function (a, b) { return a - b; });
+          var p95 = sorted[Math.floor(sorted.length * 0.95)];
+          if (p95 > 40) {
+            fastWindows = 0;
+            if (++slowWindows >= 2 && quality !== "low") {
+              quality = quality === "high" ? "mid" : "low";
+              slowWindows = 0;
+              frameTimes = [];
+            }
+          } else if (p95 < 20) {
+            slowWindows = 0;
+            if (++fastWindows >= 3 && quality !== "high") {
+              quality = quality === "low" ? "mid" : "high";
+              fastWindows = 0;
+              frameTimes = [];
+            }
+          } else { slowWindows = 0; fastWindows = 0; }
+        }
+      }
+    }
+    lastStamp = t;
+  }
+  function perfNow() {
+    if (!frameTimes.length) return { fps: 0, minFps: 0, p95: 0, quality: quality, frames: 0 };
+    var sum = 0, worst = 0;
+    frameTimes.forEach(function (n) { sum += n; if (n > worst) worst = n; });
+    var avg = sum / frameTimes.length;
+    var sorted = frameTimes.slice().sort(function (a, b) { return a - b; });
+    return { fps: Math.round(1000 / avg), minFps: Math.round(1000 / worst), p95: Math.round(sorted[Math.floor(sorted.length * 0.95)] * 10) / 10, quality: quality, frames: frameTimes.length };
+  }
+  function drawLife(t) {
+    if (reduced() || quality === "low") return;
+    if (imgs.glideSky) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, viewW, viewH * 0.46);
+      ctx.clip();
+      ctx.globalAlpha = ui && ui.sky === "night" ? 0.12 : 0.22;
+      var w = viewW * 1.35;
+      var x = -((t * 0.01) % w);
+      ctx.drawImage(imgs.glideSky, x, -viewH * 0.02, w, viewH * 0.55);
+      ctx.drawImage(imgs.glideSky, x + w, -viewH * 0.02, w, viewH * 0.55);
+      ctx.restore();
+    }
+    var birds = quality === "high" ? 3 : 1;
+    for (var i = 0; i < birds; i++) {
+      var bx = ((t * 0.03 + i * 140) % (viewW + 80)) - 40;
+      var by = viewH * (0.12 + i * 0.06) + Math.sin(t / 400 + i) * 6;
+      ctx.strokeStyle = "rgba(70,40,20,.75)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(bx - 7, by);
+      ctx.quadraticCurveTo(bx - 3, by - 5, bx, by);
+      ctx.quadraticCurveTo(bx + 3, by - 5, bx + 7, by);
+      ctx.stroke();
+    }
+    if (quality === "high") {
+      for (var f = 0; f < 2; f++) {
+        var fx = (viewW * 0.2 + f * 80 + Math.sin(t / 700 + f) * 24);
+        var fy = viewH * 0.62 + Math.cos(t / 500 + f) * 16;
+        var wing = Math.sin(t / 80 + f) * 5;
+        ctx.fillStyle = f ? "rgba(255,190,80,.85)" : "rgba(190,140,255,.85)";
+        ctx.beginPath();
+        ctx.ellipse(fx - 4, fy, 5, 2 + wing * 0.15, -0.6, 0, 6.3);
+        ctx.ellipse(fx + 4, fy, 5, 2 + wing * 0.15, 0.6, 0, 6.3);
+        ctx.fill();
+      }
+    }
+    ctx.strokeStyle = "rgba(120,190,230,.45)";
+    ctx.lineWidth = 1.5;
+    for (var p = 0; p < 3; p++) {
+      var px = viewW * 0.12, py = viewH * 0.58, pr = 10 + ((t / 18 + p * 14) % 28);
+      ctx.globalAlpha = 1 - pr / 40;
+      ctx.beginPath();
+      ctx.ellipse(px, py, pr, pr * 0.35, 0, 0, 6.3);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+  function drawSkyWash() {
+    var sky = (ui && ui.sky) || "golden";
+    if (sky === "night") ctx.fillStyle = "rgba(8, 12, 36, .48)";
+    else if (sky === "morning") ctx.fillStyle = "rgba(255,236,200,.16)";
+    else ctx.fillStyle = "rgba(255,140,40,.14)";
+    ctx.fillRect(0, 0, viewW, viewH);
+    if (sky === "night") {
+      ctx.fillStyle = "rgba(255,255,255,.9)";
+      for (var i = 0; i < 22; i++) {
+        var tw = (i % 5 === 0) ? 2.2 : 1.3;
+        ctx.fillRect((i * 67) % viewW, (i * 41) % (viewH * 0.55), tw, tw);
+      }
+    }
+  }
+  function drawSwirl(t) {
+    if (!ui || !ui.swirl) return;
+    var age = t - ui.swirl.t0;
+    if (age > 700) { ui.swirl = null; return; }
+    ctx.save();
+    ctx.translate(ui.swirl.x, ui.swirl.y);
+    ctx.rotate(age / 80);
+    ctx.strokeStyle = "rgba(255,207,107," + (1 - age / 700) + ")";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(0, 0, 18 + age / 18, 0, 4.2);
+    ctx.stroke();
+    ctx.restore();
+  }
   function frame(t) {
     if (!root || !st) return;
+    noteFrame(t);
     var next = root.querySelector("canvas");
     if (!next) { raf = requestAnimationFrame(frame); return; }
     cv = next;
     ctx = cv.getContext("2d");
     var rect = cv.getBoundingClientRect();
-    var dpr = Math.min(2, window.devicePixelRatio || 1);
     viewW = Math.max(280, rect.width || 360);
     viewH = Math.max(320, rect.height || 480);
+    var cap = quality === "low" ? 1 : quality === "mid" ? 1.25 : 2;
+    var budget = Math.sqrt(720000 / Math.max(1, viewW * viewH));
+    var dpr = Math.min(cap, budget, window.devicePixelRatio || 1);
+    if (dpr < 1) dpr = 1;
     if (cv.width !== Math.floor(viewW * dpr) || cv.height !== Math.floor(viewH * dpr)) {
       cv.width = Math.floor(viewW * dpr);
       cv.height = Math.floor(viewH * dpr);
@@ -495,6 +652,7 @@
     else if (ui.mode === "gallery") drawGallery(t);
     else {
       drawCover(imgs.bg);
+      if (ui.mode === "farm" || ui.mode === "hunt" || ui.mode === "fair") drawLife(t);
       var wash = ctx.createLinearGradient(0, 0, 0, viewH);
       wash.addColorStop(0, "rgba(255,210,120,.08)");
       wash.addColorStop(1, "rgba(0,0,0,.12)");
@@ -503,11 +661,25 @@
       drawBoard(t);
       if (drag) {
         var d = byId(drag.id);
-        if (d) drawCreature(d, drag.x, drag.y, 86, t, true);
+        if (d) {
+          ctx.fillStyle = "rgba(0,0,0,.25)";
+          ctx.beginPath();
+          ctx.ellipse(drag.x, drag.y + 36, 22, 6, 0, 0, 6.3);
+          ctx.fill();
+          drawCreature(d, drag.x, drag.y - 8, 96, t, true);
+        }
       }
     }
+    if (ui.mode === "hunt" && ui.phase === "play") drawLife(t);
+    if (ui.mode === "fair" && ui.phase === "play") drawLife(t);
+    drawSwirl(t);
+    drawSkyWash();
     drawSparkles();
     if (ui.mode === "glide" && ui.phase === "play") stepGlide(t);
+    if (window.FarmFX && FarmFX.step) {
+      var stage = root.querySelector(".farm-stage");
+      FarmFX.step(lastStamp ? 16 : 16, { quality: quality, sky: ui.sky, rect: stage ? stage.getBoundingClientRect() : null });
+    }
     raf = requestAnimationFrame(frame);
   }
 
@@ -515,16 +687,27 @@
   function selectedDragon() { return byId(ui.selected) || st.dragons.filter(function (d) { return d.stage > 0; })[0] || st.dragons[0]; }
 
   function hatch() {
+    if (ui.hatch) return;
     var egg = st.dragons.filter(function (d) { return d.stage === 0; })[0];
     if (!egg) { ui.note = "No eggs are waiting. Everyone already here is safe."; paint(); return; }
-    egg.stage = 1;
-    egg.wellness = Math.max(egg.wellness, 2);
-    ui.selected = egg.id;
-    ui.note = egg.name + " hatched. Wings, horns, and a tail, and the egg's friends stay.";
+    ui.hatch = { id: egg.id, t0: performance.now() };
+    ui.note = "The shell is cracking.";
     var cell = board.filter(function (b) { return b.i === egg.slot; })[0];
-    burst(cell ? cell.x + cell.s / 2 : 80, cell ? cell.y : 80, "#ffb15a", 26);
-    chime();
-    save(st); paint();
+    var hx = cell ? cell.x + cell.s / 2 : viewW / 2, hy = cell ? cell.y + cell.s / 2 : viewH * 0.4;
+    burst(hx, hy, "#fff1c4", 18);
+    setTimeout(function () {
+      if (!st || !egg) return;
+      egg.stage = 1;
+      egg.wellness = Math.max(egg.wellness, 2);
+      egg.boing = performance.now();
+      ui.selected = egg.id;
+      ui.hatch = null;
+      ui.note = egg.name + " hatched. Wings, horns, and a tail, and the egg's friends stay.";
+      burst(hx, hy, "#ffb15a", 36);
+      if (window.FarmFX) FarmFX.burst(hx, hy, 0xffe0a0, 24);
+      chime();
+      save(st); paint();
+    }, reduced() ? 0 : 460);
   }
   function firstFood() {
     var best = null, n = 0;
@@ -539,6 +722,9 @@
     if (d.wellness >= 5) { ui.note = d.name + " is already gleaming. Save the food. Glow does not go backward."; paint(); return; }
     st.pantry[food]--;
     d.wellness++;
+    d.boing = performance.now();
+    burst(viewW / 2, viewH * 0.4, "#ffcf6b", 20);
+    if (window.FarmFX) FarmFX.burst(viewW / 2, viewH * 0.35, 0xffe7a8, 18);
     ui.note = d.name + " nibbled " + CROPS[food].name.toLowerCase() + ". " + CROPS[food].line + " " + GLOW[d.wellness] + ".";
     tone(660, 0, 0.12, "sine", 0.04);
     save(st); paint();
@@ -620,7 +806,7 @@
     window.removeEventListener("pointerup", onUp);
     if (!d || !cell) return;
     var other = dragonAt(cell.i);
-    if (!other) { d.slot = cell.i; save(st); return; }
+    if (!other) { d.slot = cell.i; d.boing = performance.now(); save(st); return; }
     if (other.id === d.id) return;
     if (other.species === d.species && other.stage === d.stage && kindCount(d) >= 3) { welcomeNext(d); paint(); return; }
     if (other.species === d.species && other.stage === d.stage) {
@@ -629,6 +815,8 @@
       return;
     }
     var tmp = d.slot; d.slot = other.slot; other.slot = tmp;
+    d.boing = performance.now();
+    other.boing = performance.now();
     save(st);
   }
 
@@ -723,6 +911,24 @@
       ctx.drawImage(sky, (viewW - dw) / 2 + drift, (viewH - dh) * 0.42, dw, dh);
     }
     if (imgs.glideNear) drawPainted(imgs.glideNear, g.near || 0, viewH * 0.1, viewW * 1.24);
+    if (quality !== "low") {
+      g.rings.forEach(function (r) {
+        if (r.got) return;
+        var glow = ctx.createRadialGradient(r.x, r.y, 2, r.x, r.y, 26);
+        glow.addColorStop(0, "rgba(255,244,210,.95)");
+        glow.addColorStop(1, "rgba(255,160,40,0)");
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(r.x, r.y, 26, 0, 6.3);
+        ctx.fill();
+        ctx.fillStyle = "#6a3e1c";
+        ctx.fillRect(r.x - 4, r.y - 18, 8, 12);
+        ctx.fillStyle = "#ffcf6b";
+        ctx.beginPath();
+        ctx.arc(r.x, r.y - 4, 5, 0, 6.3);
+        ctx.fill();
+      });
+    }
     if (g.dragon) {
       ctx.fillStyle = "rgba(0,0,0,.28)";
       ctx.beginPath();
@@ -755,6 +961,7 @@
       }
     });
     g.far += 0.02 * dt; g.mid += 0.04 * dt; g.near += 0.035 * dt;
+    if (quality !== "low" && !reduced() && Math.random() < 0.4) burst(g.x - 28, g.y + 6, "#ffd89a", 1);
     g.clouds.forEach(function (c) { c.x -= 0.05 * dt; });
     g.obstacles.forEach(function (o) {
       o.x -= 0.16 * dt;
@@ -900,7 +1107,7 @@
     if (!raf) raf = requestAnimationFrame(frame);
   }
   function shell() {
-    var head = '<div class="farm-top"><div><h2>' + title() + '</h2><p>' + st.dragons.length + " dragons · farm stars " + (st.stars || 0) + " · pantry " + pantryCount() + '</p></div><div class="farm-row"><button class="farm-btn" data-farm="back">Back</button><button class="farm-btn" data-farm="mute">' + (soundOn ? "Sound on" : "Sound off") + "</button></div></div>";
+    var head = '<div class="farm-top"><div><h2>' + title() + '</h2><p>' + st.dragons.length + " dragons · farm stars " + (st.stars || 0) + " · pantry " + pantryCount() + '</p></div><div class="farm-row"><button class="farm-btn" data-farm="back">Back</button><button class="farm-btn" data-farm="sky">' + skyWord() + '</button><button class="farm-btn" data-farm="mute">' + (soundOn ? "Sound on" : "Sound off") + "</button></div></div>";
     if (ui.mode === "flight") return flightHtml(head);
     if (ui.mode === "gallery") return head + '<div class="farm-stage"><canvas aria-label="Dragon kinds"></canvas></div><p class="farm-note">Six kinds, from baby to elder. Eggs are the start. Elders wear a brighter trim. Rarity is a glow, not a rank against anyone.</p><button class="farm-btn" data-farm="home">Back to the meadow</button>';
     if (ui.phase === "start") return head + card(ui.mode) + '<button class="farm-btn gold" data-farm="begin">Begin</button><button class="farm-btn" data-farm="home">Not now</button>';
@@ -925,6 +1132,9 @@
       + '<button class="farm-btn" data-farm="panel:play">Play</button>'
       + '<button class="farm-btn" data-farm="gallery">Kinds</button>'
       + "</div>" + garden + fly + play;
+  }
+  function skyWord() {
+    return { morning: "Morning", golden: "Golden hour", night: "Starry night" }[ui && ui.sky] || "Golden hour";
   }
   function title() {
     if (ui.mode === "flight" && ui.flightPlace) return "Flying to " + ui.flightPlace.name;
@@ -970,21 +1180,53 @@
     ctx.fill();
   }
   function drawRoute(t) {
-    var img = imgs.flight;
+    var place = ui.flightPlace;
+    var img = (place && place.id === "peru" && imgs.flight) || (place && imgs["land:" + place.id]) || imgs.flight;
+    if (imgs.glideSky && quality !== "low") {
+      ctx.save();
+      ctx.globalAlpha = 0.35;
+      var w = viewW * 1.2;
+      var x = -((t * 0.02) % w);
+      ctx.drawImage(imgs.glideSky, x, 0, w, viewH * 0.45);
+      ctx.restore();
+    }
     if (img) {
-      var drift = reduced() ? 0 : Math.sin(t / 2000) * 14;
+      var drift = reduced() ? 0 : Math.sin(t / 1800) * 16;
       var cover = Math.max(viewW / img.width, viewH / img.height);
       var dw = img.width * cover * 1.08;
       var dh = img.height * cover * 1.08;
       ctx.drawImage(img, (viewW - dw) / 2 + drift, (viewH - dh) / 2, dw, dh);
     }
-    var bob = reduced() ? 0 : Math.sin(t / 480) * 10;
-    var fx = viewW * 0.28, fy = viewH * 0.18 + bob;
-    ctx.fillStyle = "rgba(40, 24, 8, .3)";
+    if (img && quality !== "low") {
+      var gx = viewW * 0.16, gy = viewH * 0.16, gr = Math.min(viewW, viewH) * 0.11;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(gx, gy, gr, 0, 6.3);
+      ctx.clip();
+      var spin = reduced() ? 0 : (t / 40) % img.width;
+      ctx.drawImage(img, gx - gr - spin * 0.05, gy - gr, gr * 2.4, gr * 2);
+      ctx.restore();
+      ctx.strokeStyle = "rgba(255,207,107,.85)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(gx, gy, gr, 0, 6.3);
+      ctx.stroke();
+    }
+    var along = reduced() ? 0.45 : (Math.sin(t / 900) * 0.5 + 0.5);
+    var fx = viewW * (0.22 + along * 0.35);
+    var fy = viewH * (0.28 - Math.sin(along * 3.14) * 0.08);
+    ctx.fillStyle = "rgba(40, 24, 8, .28)";
     ctx.beginPath();
-    ctx.ellipse(fx + 16, viewH * 0.7, 28, 7, 0, 0, 6.3);
+    ctx.ellipse(fx + 18, fy + 70, 26, 7, 0, 0, 6.3);
     ctx.fill();
-    drawCreature({ species: "cinder", stage: 3, rarity: 2, phase: 1, id: "flyer" }, fx, fy, 120, t, false, -0.72);
+    if (quality !== "low" && !reduced()) burst(fx - 24, fy + 8, "rgba(255,220,140,.7)", 1);
+    drawCreature({ species: "cinder", stage: 3, rarity: 2, phase: 1, id: "flyer" }, fx, fy, 118, t, false, -0.7 - along * 0.15);
+    if (place) {
+      ctx.fillStyle = "#fff8e8";
+      ctx.font = "700 22px Cinzel, serif";
+      ctx.textAlign = "left";
+      ctx.fillText(place.name, 16, 32);
+    }
   }
   function flightHtml(head) {
     var p = ui.flightPlace;
@@ -1000,6 +1242,8 @@
       act(el.getAttribute("data-farm"));
     };
     cv = root.querySelector("canvas");
+    var stage = root.querySelector(".farm-stage");
+    if (stage && ui) stage.setAttribute("data-sky", ui.sky || "golden");
     if (cv) {
       cv.addEventListener("pointerdown", onDown);
       if (ui.mode === "hunt" && ui.hunt) {
@@ -1050,6 +1294,13 @@
     if (name === "back") { if (ui.mode === "farm" && !ui.panel) { if (window.go) window.go("home"); return; } ui.mode = "farm"; ui.panel = ""; ui.phase = ""; paint(); return; }
     if (name === "home") { ui.mode = "farm"; ui.panel = ""; ui.phase = ""; paint(); return; }
     if (name === "mute") { setSound(!soundOn); return; }
+    if (name === "sky") {
+      var order = ["morning", "golden", "night"];
+      ui.sky = order[(order.indexOf(ui.sky) + 1) % 3];
+      try { localStorage.setItem("starblade-farm-sky", ui.sky); } catch (e) {}
+      paint();
+      return;
+    }
     if (name.indexOf("panel:") === 0) { ui.panel = name.slice(6); ui.mode = "farm"; ui.phase = ""; paint(); return; }
     if (name === "hatch") return hatch();
     if (name === "feed") return feed();
@@ -1102,6 +1353,7 @@
     ui.phase = "end";
     ui.note = d.name + " receives a " + GLOW[d.wellness] + " ribbon and " + gained + " star. This is a celebration, not a ranking.";
     burst(viewW / 2, viewH / 2, "#ffcf6b", 24);
+    if (window.FarmFX) FarmFX.burst(viewW / 2, viewH * 0.4, 0xffe7a0, 36);
     chime();
     save(st); paint();
   }
@@ -1112,8 +1364,11 @@
     if (root) root.classList.add("farm-app");
     try { soundOn = localStorage.getItem("starblade-farm-mute") !== "1"; } catch (e) { soundOn = true; }
     st = load();
-    ui = { mode: "farm", panel: "", phase: "", selected: st.dragons[0] ? st.dragons[0].id : null, note: st.hello || st.note || "The meadow kept everyone safe." };
+    var savedSky = "";
+    try { savedSky = localStorage.getItem("starblade-farm-sky") || ""; } catch (e) {}
+    ui = { mode: "farm", panel: "", phase: "", sky: savedSky || skyFromClock(), selected: st.dragons[0] ? st.dragons[0].id : null, note: st.hello || st.note || "The meadow kept everyone safe." };
     var boot = function () { ready = true; paint(); startMusic(); };
+    if (reduced()) quality = "low";
     if (ready && imgs.bg) boot();
     else loadImages(boot);
   }
@@ -1131,6 +1386,7 @@
     mount: mount,
     unmount: unmount,
     pocket: pocket,
-    counts: function () { return { species: SPECIES.length, stages: STAGE.length, rarities: 4, plants: Object.keys(CROPS).length, countries: PLACES.length }; }
+    counts: function () { return { species: SPECIES.length, stages: STAGE.length, rarities: 4, plants: Object.keys(CROPS).length, countries: PLACES.length }; },
+    perf: perfNow
   };
 })();
