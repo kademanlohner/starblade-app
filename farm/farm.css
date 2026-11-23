@@ -1,26 +1,30 @@
 .farm-app {
-  min-height: 100dvh;
+  min-height: calc(100dvh - 8px);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   color: #f6f3ff;
   font-family: Lexend, "Avenir Next", "Segoe UI", system-ui, sans-serif;
   overflow-x: hidden;
-  padding-bottom: 18px;
+  max-width: 100%;
+  padding-bottom: 12px;
+  box-sizing: border-box;
 }
 .farm-app h2, .farm-app h3 { font-family: Cinzel, "Times New Roman", serif; color: #ffcf6b; margin: 0; }
-.farm-top { display: flex; align-items: flex-start; gap: 10px; }
-.farm-top > div { flex: 1; min-width: 0; }
-.farm-top h2 { font-size: 26px; line-height: 1.1; }
-.farm-top p { margin: 2px 0 0; color: #b3afdb; font-size: 14px; }
+.farm-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; max-width: 100%; }
+.farm-top > div { flex: 1 1 100%; min-width: 0; }
+.farm-top h2 { font-size: 28px; line-height: 1.1; }
+.farm-top p { margin: 2px 0 0; color: #b3afdb; font-size: 15px; white-space: normal; }
 .farm-stage {
   position: relative;
+  flex: 1 1 auto;
+  min-height: 360px;
+  height: 52dvh;
   border-radius: 22px;
   overflow: hidden;
-  border: 1px solid rgba(255, 207, 107, .35);
-  background: #120f2c;
-  min-height: 230px;
-  height: 38dvh;
+  border: 1px solid rgba(255, 207, 107, .45);
+  background: #16301c;
+  max-width: 100%;
 }
 .farm-stage canvas { width: 100%; height: 100%; display: block; touch-action: none; }
 .farm-note {
@@ -28,64 +32,81 @@
   background: #16132e;
   border-radius: 14px;
   padding: 10px 12px;
-  line-height: 1.45;
+  line-height: 1.4;
   font-size: 15px;
+  max-width: 100%;
 }
-.farm-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
-.farm-row::-webkit-scrollbar { display: none; }
+.farm-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 100%;
+  overflow: visible;
+}
 .farm-chip, .farm-btn {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
+  max-width: 100%;
   min-height: 48px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, .16);
   background: #ffffff14;
   color: #f6f3ff;
-  font: 600 15px/1.2 Lexend, "Segoe UI", sans-serif;
-  padding: 0 14px;
-  white-space: nowrap;
+  font: 600 16px/1.2 Lexend, "Segoe UI", sans-serif;
+  padding: 12px 14px;
+  text-align: center;
+  white-space: normal;
 }
-.farm-chip.on { border-color: #ffcf6b; color: #ffcf6b; }
+.farm-chip.on, .farm-btn.on { border-color: #ffcf6b; color: #ffcf6b; }
 .farm-btn.gold { background: #ffcf6b; color: #2b1700; border-color: transparent; }
 .farm-btn:disabled { opacity: .45; }
-.farm-sheet {
+.farm-sheet, .farm-card {
   background: #16132e;
   border-radius: 18px;
   padding: 12px;
   display: grid;
   gap: 8px;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.farm-card { border: 1px solid rgba(255, 207, 107, .28); }
+.farm-card img, .farm-sheet img {
+  width: 100%;
+  max-height: 280px;
+  object-fit: cover;
+  border-radius: 14px;
+  display: block;
 }
 .farm-sheet p, .farm-card p { margin: 0; line-height: 1.45; }
-.farm-card {
-  border-radius: 16px;
-  padding: 12px;
-  background: #120f2c;
-  border: 1px solid rgba(255, 207, 107, .28);
-}
-.farm-card h3 { font-size: 18px; margin-bottom: 4px; }
-.farm-kicker { color: #ffcf6b; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; margin: 0 0 4px; }
-.farm-fly {
+.farm-card h3 { font-size: 20px; }
+.farm-kicker { color: #ffcf6b; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; margin: 0; }
+.farm-sky {
   position: relative;
-  height: 150px;
+  height: 120px;
   border-radius: 16px;
   overflow: hidden;
-  background: linear-gradient(#241a4a, #c47a3a);
+  background: linear-gradient(#2a1d58, #e39a55);
 }
-.farm-fly .cloud {
+.farm-sky i {
   position: absolute;
-  background: #fff6;
+  background: #fff7;
   border-radius: 20px;
-  height: 18px;
-  animation: farmDrift 6s linear infinite;
+  height: 16px;
 }
-@keyframes farmDrift { from { transform: translateX(20px); } to { transform: translateX(-80px); } }
-.farm-dragon-float {
+.farm-pop {
   position: absolute;
-  left: 18%;
-  top: 36%;
-  font-size: 42px;
-  animation: farmBob 1.6s ease-in-out infinite;
+  left: 16%;
+  top: 28%;
+  width: 88px;
+  height: auto;
+  animation: farmBob 1.4s ease-in-out infinite;
+  filter: drop-shadow(0 8px 8px rgba(0,0,0,.35));
 }
-@keyframes farmBob { 50% { transform: translateY(-10px); } }
+@keyframes farmBob { 50% { transform: translateY(-12px); } }
+@media (min-width: 700px) {
+  .farm-top h2 { font-size: 28px; }
+  .farm-stage { min-height: 480px; height: 58dvh; }
+  .farm-card img { max-height: 360px; }
+}
 @media (prefers-reduced-motion: reduce) {
-  .farm-fly .cloud, .farm-dragon-float { animation: none; }
+  .farm-pop { animation: none; }
 }
